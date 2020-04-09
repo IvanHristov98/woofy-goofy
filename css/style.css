@@ -1,0 +1,88 @@
+@font-face {
+  font-family: boldFont;
+  src: url(../font/Comfortaa-Bold.ttf);
+}
+
+@font-face {
+    font-family: regularFont;
+    src: url(../font/Comfortaa-Regular.ttf);
+}
+
+@font-face {
+    font-family: lightFont;
+    src: url(../font/Comfortaa-Light.ttf);
+}
+
+body {
+    background-color: #F5F1E3;
+    margin: 0;
+}
+
+h1, h2, h3, h4, h5, h6, b {
+  font-family: "boldFont", cursive, sans-serif;
+  color: #050505;
+}
+
+html, body {
+    font-family: "regularFont", cursive, sans-serif;
+    color: #454545;
+}
+
+hr {
+  display: block;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+  margin-left: auto;
+  margin-right: auto;
+  border-style: inset;
+  border-width: 0px;
+  height: 3px;
+  background-color: #050505;
+}
+
+img {
+    width: 100%;
+    margin: 20px 0;
+}
+
+#page {
+    background-color: #FFF;
+    min-height: 800px;
+    margin: 5% 20%;
+    padding: 5%;
+}
+
+.btn {
+    background-color: #1B9AAA;
+    padding: 8px 15px;
+    color: white;
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: lightFont;
+}
+
+.mark {
+    color: #050505;
+    background-color: #DDDBCB;
+    border-radius: 3px;
+    display: inline;
+    margin: 0;
+    padding: 2px 4px;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th, td {
+  text-align: left;
+  padding: 8px;
+}
+
+tr:nth-child(even){background-color: #f2f2f2}
+
+th {
+  background-color: #1B9AAA;
+  color: white;
+}
