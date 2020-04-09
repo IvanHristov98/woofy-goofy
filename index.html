@@ -3,6 +3,8 @@
 <head>
     <title>Sounds</title>
     <link rel="stylesheet" type="text/css" href="css/style.css">
+
+    <script src="https://cdn.jsdelivr.net/gh/google/code-prettify@master/loader/run_prettify.js"></script>
 </head>
 <body>
     <div id="page">
@@ -73,6 +75,47 @@
         <h2>Заключение</h2>
         <p>В тази част разгледахме какво представлява уеб аудиото и как то работи на чисто концептуално ниво. В следващата част ще се навлезем в повече детайли как се реализират ефекти като този:</p>
         <a class="btn" onclick="startLowPass()">LOW PASS EFFECT</a>
+
+        <h1>Въведение в Web Audio API</h1><hr/>
+        <p>Досега главно разглеждахме какви са принципите зад Web Audio API. Нека започнем с един елементарен пример:
+        <pre class="prettyprint">
+            <code class="language-javascript">
+let bufferSize = 4096;
+
+function getLowPassEffect(audioCtx) {
+    let lastOut = 0.0;
+
+    let node = audioCtx.createScriptProcessor(bufferSize, 1, 1);
+
+    node.onaudioprocess = function(e) {
+        let input = e.inputBuffer.getChannelData(0);
+        let output = e.outputBuffer.getChannelData(0);
+
+        for (let i = 0; i < bufferSize; ++i) {
+            output[i] = (input[i] + lastOut) / 2.0;
+            lastOut = output[i];
+        }
+    }
+
+    return node;
+};
+
+            </code>
+        </pre>
+        В общи линии това е структурата на един аудио филтър.
+        </p>
+        <p>
+            В предната част се запознахме с това какво представлявата AudioBuffer-ите и, че едно от свойствата им е дължина. Тази дължина трябва да бъде подбрана по оптимален начин защото тя влияе на това, колко често <i>изкарваме звук</i>, т.е. ако е твърде къса, то звука ще се застъпва и овърта, а пък ако е твърде дълга то звука ще се накъсва. Изчислено е, че около <b>4096</b> е оптималната стойност. 
+            <pre class="prettyprint"><code class="language-javascript">
+let bufferSize = 4096;
+            </code></pre>
+        </p>
+        <p>
+            В този пример дефинираме наш filter node от тип scriptProcessor, който позволява да използваме специфична логика за да постигнем това, което искаме. В случая се възползваме от това, че филтърната функция е closure и използваме външна променлива, в която на всяко завъртане на цикъла запазваме предната честота на звука. Така няма накъсване между изпълнението на отделните audio buffer-и. Така спазваме базовия шаблон на всеки аудио филтър - получаваме два масива, съответно за вход и изход, циклим по входния масив като манипулираме всяка извадка (sample) и я записваме обратно в изходния масив.
+        </p>
+        <p>В общи линии този ефект е от по-скучните и можете да го чуете като натиснете бутона отдолу. В следващите глави ще разгледаме няколко по-интересни ефекта.</p>
+        <a class="btn" onclick="startLowPass()">LOW PASS EFFECT</a>
+        <h2>Pinking filter</h2>
     </div>
 
 
