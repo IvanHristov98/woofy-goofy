@@ -116,11 +116,141 @@ let bufferSize = 4096;
         <p>В общи линии този ефект е от по-скучните и можете да го чуете като натиснете бутона отдолу. В следващите глави ще разгледаме няколко по-интересни ефекта.</p>
         <a class="btn" onclick="startLowPass()">LOW PASS EFFECT</a>
         <h2>Pinking filter</h2>
+        <p>Pinking филтърът представлява смесица между розов и бял шум, като кара звука, който излиза да звучи малко по смекчено. На код изглежда така:</p>
+        <pre class="prettyprint"><code class="language-javascript">
+function getPinkingEffect(audioCtx) {
+    let bufferSize = 4096;
+    
+    let b0, b1, b2, b3, b4, b5, b6;
+    b0 = b1 = b2 = b3 = b4 = b5 = b6 = 0.0;
+    
+    let node = audioCtx.createScriptProcessor(bufferSize, 1, 1);
+
+    node.onaudioprocess = function(e) {
+        let input = e.inputBuffer.getChannelData(0);
+        let output = e.outputBuffer.getChannelData(0);
+        
+        for (let i = 0; i < bufferSize; i++) {
+            b0 = 0.99886 * b0 + input[i] * 0.0555179;
+            b1 = 0.99332 * b1 + input[i] * 0.0750759;
+            b2 = 0.96900 * b2 + input[i] * 0.1538520;
+            b3 = 0.86650 * b3 + input[i] * 0.3104856;
+            b4 = 0.55000 * b4 + input[i] * 0.5329522;
+            b5 = -0.7616 * b5 - input[i] * 0.0168980;
+            output[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + input[i] * 0.5362;
+            output[i] *= 0.11;
+            b6 = input[i] * 0.115926;
+        }
+    }
+
+    return node;
+}
+        </code></pre>
+        <p>Очевидно този пример използва почти същата логика като low-pass филтъра с разликата в това, че тук са използвани 6 low-pass филтъра за разлика от предния пример. С други думи както се забелязва b0 осреднява силата си с предишната си стойност, b1 също прави това и т.н. Тези 6 филтъра са комбинирани с точните стойности така, че средно да се получи приблизително -3 децибела на октава. Като цъкнете долния бутон може да забележите ефекта.</p>
+        <a class="btn" onclick="startPinking()">PINKING EFFECT</a>
+
+        <h2>Звуков усуквател</h2>
+        <p>Това е един от най-готините ефекти, които могат да бъдат получени.</p>
+        <pre class="prettyprint"><code class="language-javascript">
+function noiseConvolver() {
+    let convolver = audioContext.createConvolver();
+    let noiseBuffer = audioContext.createBuffer
+        2, 
+        0.5 * audioContext.sampleRate, 
+        audioContext.sampleRate);
+    
+    let left = noiseBuffer.getChannelData(0);
+    let right = noiseBuffer.getChannelData(1);
+
+    for (var i = 0; i < noiseBuffer.length; i++) {
+        left[i] = Math.random() * 2 - 1;
+        right[i] = Math.random() * 2 - 1;
+    }
+
+    convolver.buffer = noiseBuffer;
+    return convolver;
+}
+        </code></pre>
+        <p>В обши линии тук създаваме бял шум с дължина от 0.5 секунди, който се подава съответно на L и R каналите в един стерео буфер. Като цяло чрез този шум могат да бъдат постигнати много интересни ефекти.</p>
+
+        <h2>Moog filter</h2>
+        <p>Това е класически ефект, чрез който се постига ефект на резонанс. Чрез кода в този пример този ефект може да се апроксимира много добре, но това е просто заобиколен начин да се постигне това.</p>
+        <pre class="prettyprint"><code class="language-javascript">
+let bufferSize = 4096;
+
+function moogEffect() {
+    let node = audioContext.createScriptProcessor(bufferSize, 1, 1);
+    let in1, in2, in3, in4, out1, out2, out3, out4;
+    in1 = in2 = in3 = in4 = out1 = out2 = out3 = out4 = 0.0;
+
+    node.cutoff = 0.065; // between 0.0 and 1.0
+    node.resonance = 3.99; // between 0.0 and 4.0
+
+    node.onaudioprocess = function(e) {
+        let input = e.inputBuffer.getChannelData(0);
+        let output = e.outputBuffer.getChannelData(0);
+        let f = node.cutoff * 1.16;
+        let fb = node.resonance * (1.0 - 0.15 * f * f);
+
+        for (let i = 0; i < bufferSize; i++) {
+            input[i] -= out4 * fb;
+            input[i] *= 0.35013 * (f*f)*(f*f);
+            out1 = input[i] + 0.3 * in1 + (1 - f) * out1; // Pole 1
+            in1 = input[i];
+            out2 = out1 + 0.3 * in2 + (1 - f) * out2; // Pole 2
+            in2 = out1;
+            out3 = out2 + 0.3 * in3 + (1 - f) * out3; // Pole 3
+            in3 = out2;
+            out4 = out3 + 0.3 * in4 + (1 - f) * out4; // Pole 4
+            in4 = out3;
+            output[i] = out4;
+        }
+    }
+
+    return node;
+};
+        </code></pre>
+
+        <h2>Bitcrusher</h2>
+        <p>Този ефект квантизира (не знам думата на български) изходния сигнал, т.е. запазва извадка от входния сигнал на определени периоди, които са определени от битовете и normfreq подадени като настройка на върха.</p>
+        <pre class="prettyprint"><code class="language-javascript">
+let bufferSize = 4096;
+
+function bitcrusherEffect() {
+    let node = audioContext.createScriptProcessor(bufferSize, 1, 1);
+    node.bits = 4; // between 1 and 16
+    node.normfreq = 0.1; // between 0.0 and 1.0
+
+    let step = Math.pow(1/2, node.bits);
+    let phaser = 0;
+    let last = 0;
+
+    node.onaudioprocess = function(e) {
+        let input = e.inputBuffer.getChannelData(0);
+        let output = e.outputBuffer.getChannelData(0);
+        
+        for (var i = 0; i < bufferSize; i++) {
+            phaser += node.normfreq;
+
+            if (phaser >= 1.0) {
+                phaser -= 1.0;
+                last = step * Math.floor(input[i] / step + 0.5);
+            }
+
+            output[i] = last;
+        }
+    };
+
+    return node;
+}
+        </code></pre>
+        
     </div>
 
 
 <script src="pkg/audioContext.js"></script>
 <script src="pkg/soundPlayer.js"></script>
-<script src="pkg/lowPass.js"></script>
+<script src="pkg/filter/lowPass.js"></script>
+<script src="pkg/filter/pinking.js"></script>
 </body>
 </html>

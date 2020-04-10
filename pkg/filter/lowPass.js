@@ -1,8 +1,8 @@
-let bufferSize = 4096;
-
 function getLowPassEffect(audioCtx) {
-    let lastOut = 0.0;
+    let bufferSize = 4096;
 
+    let lastOut = 0.0;
+    
     let node = audioCtx.createScriptProcessor(bufferSize, 1, 1);
 
     node.onaudioprocess = function(e) {
@@ -29,5 +29,4 @@ function startLowPass() {
     soundPlayer.play(400, 0.5, "sine").stop(1);
 
     lowPassEffect.connect(audioCtx.destination);
-
 }
