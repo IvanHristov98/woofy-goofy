@@ -7,689 +7,692 @@
     <script src="https://cdn.jsdelivr.net/gh/google/code-prettify@master/loader/run_prettify.js"></script>
 </head>
 <body>
+  <div class="page-wrapper">
+    <div id="side-menu">
+      <ol type="I">
+        <li><a href="#introduction_to_audio_filters">Въведение в аудио филтрите за уеб</a>
+          <ol>
+          <li><a href="#definition">Дефиниция</a></li>
+          <li><a href="#web_audio_api">Web Audio API</a></li>
+          <li><a href="#buffers_samples_chans">Аудио буфери, извадки и канали</a></li>
+          <li><a href="#chans">Аудио канали</a></li>
+          </ol>
+        </li>
+        <li><a href="#intro_web_audio">Въведение в Web Audio API</a>
+          <ol>
+          <li><a href="#ping">Pinking filter</a></li>
+          <li><a href="#convulsion">Звуков усуквател</a></li>
+          <li><a href="#moog">Moog filter</a></li>
+          <li><a href="#bitcrusher">Bitcrusher</a></li>
+        </ol>
+        </li>
+      <li><a href="#synt">Как да си построим монотронен синтезатор за Web Audio API</a>
+        <ol>
+          <li><a href="#circuit">Аудио вергиа</a></li>
+          <li><a href="#cpanel">Контролния панел</a></li>
+          <li><a href="#ribbon_keyboard">Клавиатура</a></li>
+          <li><a href="#connection">Свързване на компоненти</a></li>
+        </ol>
+      </li>
+    </ol>
+    </div>
     <div id="page">
-        <div id="toc_container">
-            <p class="toc_title">Contents</p>
-            <ul class="toc_list">
-                <li><a href="#introduction_to_audio_filters">1 Въведение в аудио филтрите за уеб</a>
-                <ul>
-                <li><a href="#definition">1.1 Дефиниция</a></li>
-                <li><a href="#web_audio_api">1.2 Web Audio API</a></li>
-                <li><a href="#buffers_samples_chans">1.3 Аудио буфери, извадки и канали</a></li>
-                <li><a href="#chans">1.4 Аудио канали</a></li>
-                </ul>
-            </li>
-            <li><a href="#intro_web_audio">2 Въведение в Web Audio API</a>
-                <li><a href="#ping">2.1 Pinking filter</a></li>
-                <li><a href="#convulsion">2.2 Звуков усуквател</a></li>
-                <li><a href="#moog">2.3 Moog filter</a></li>
-                <li><a href="#bitcrusher">2.4 Bitcrusher</a></li>
-            </li>
-            <li><a href="#synt">3 Как да си построим монотронен синтезатор за Web Audio API</a>
-                <li><a href="#circuit">2.1 Аудио вергиа</a></li>
-                <li><a href="#cpanel">2.2 Контролния панел</a></li>
-                <li><a href="#ribbon_keyboard">2.3 Клавиатура</a></li>
-                <li><a href="#connection">2.4 Свързване на компоненти</a></li>
-            </li>
-            </ul>
-        </div>
-        <h1 id="introduction_to_audio_filters">Въведение в аудио филтрите за уеб</h1><hr/>
-        <h2 id="definition">Дефиниция</h2>
-        <p>Аудио wtf mate  филтри в уеб наричаме библиотеки, които се използват за създаване и манипулация на звук в уеб (откъдето идва и името филтри).</p>
+      <h1 id="introduction_to_audio_filters">Въведение в аудио филтрите за уеб</h1><hr/>
+      <h2 id="definition">Дефиниция</h2>
+      <p>Аудио wtf mate  филтри в уеб наричаме библиотеки, които се използват за създаване и манипулация на звук в уеб (откъдето идва и името филтри).</p>
 
-        <h2 id="web_audio_api">Web Audio API</h2>
-        <p>Най-разпространената имплементация е библиотеката Web Audio API. Тя включва изпълнение на аудио операции в <b>контекст</b>. Аудио операциите се извършват посредством audio node-ове, свързани помежду си оформяйки audio routing graph. 
-            <ul>Има няколко типа върхове в този граф:
-                <li>sources (източници) - това са върхове, генериращи аудио. Пример за такъв е Oscillator, като такива могат да са дори &lt;audio&gt; елементи в една html страница.</li>
-                <li>filters - това са тези върхове, които изменят аудиото, което преминава през тях и го предават на други върхове след тях.</li>
-                <li>destinations - това е крайната точка, където бива запращано аудиото. Това обичайно са хардуерните устройства произвеждащи звук.</li>
-            </ul>
-        </p>
-        <p>Последователността от ефекти при Web Audio API може да се изобрази по следния начин:
-            <img src="img/web_audio_flow.svg"/>
-        </p>
-        <p>Звукът минава през върховете на графа под формата на поток, като един поток може да се състои от няколко канала. В зависимост от броя на каналите може да се поддържа различен тип аудио структура, като например <b>моно, стерео, quad и 5.1</b>.</p>
-        <h2 id="buffers_samples_chans">Аудио буфери, извадки и канали</h2>
-        <p>В природата звукът може да се разглежда като непрекъсната функция. На практика това няма как да се представи директно в един компютър и поради това се налага разбиването на непрекъсната функция на малки парчета. Това е така наречение процес на дигитализация. В Web Audio API този процес на дигитализация наричаме sampling. Така един времеви интервал от звук, може да се разбие на <b>n</b> на брой парчета, като всяко от тях е число в масив.</p>
-        <p>В момент <b>T</b> във всеки канал от потока на звука има извадка. Групата от тези извадки наричаме sample frame на момент <b>T</b>. Също така sample frame-а е n-мерен вектор, където n е броят на каналите.</p>
-        <p>Този масив от frame-ове се пази в AudioBuffer, който се характеризира с дължина (бр. sample frame-ове) и честота на извадките (sample rate), което е бр. на sample frame-овете пуснати за секунда. Например един стерео буфер може да бъде представен по следния начин:
-            <img src="img/audio_buffer.png"/>
-        </p>
-        
-        <h2 id="chans">Аудио канали</h2>
-        <p>Има различни видове аудио буфери, като най-често използваните (и тези поддържани от Web Audio API) са поставени в таблицата отдолу.</p>
+      <h2 id="web_audio_api">Web Audio API</h2>
+      <p>Най-разпространената имплементация е библиотеката Web Audio API. Тя включва изпълнение на аудио операции в <b>контекст</b>. Аудио операциите се извършват посредством audio node-ове, свързани помежду си оформяйки audio routing graph. 
+          <ul>Има няколко типа върхове в този граф:
+              <li>sources (източници) - това са върхове, генериращи аудио. Пример за такъв е Oscillator, като такива могат да са дори &lt;audio&gt; елементи в една html страница.</li>
+              <li>filters - това са тези върхове, които изменят аудиото, което преминава през тях и го предават на други върхове след тях.</li>
+              <li>destinations - това е крайната точка, където бива запращано аудиото. Това обичайно са хардуерните устройства произвеждащи звук.</li>
+          </ul>
+      </p>
+      <p>Последователността от ефекти при Web Audio API може да се изобрази по следния начин:
+          <img src="img/web_audio_flow.svg"/>
+      </p>
+      <p>Звукът минава през върховете на графа под формата на поток, като един поток може да се състои от няколко канала. В зависимост от броя на каналите може да се поддържа различен тип аудио структура, като например <b>моно, стерео, quad и 5.1</b>.</p>
+      <h2 id="buffers_samples_chans">Аудио буфери, извадки и канали</h2>
+      <p>В природата звукът може да се разглежда като непрекъсната функция. На практика това няма как да се представи директно в един компютър и поради това се налага разбиването на непрекъсната функция на малки парчета. Това е така наречение процес на дигитализация. В Web Audio API този процес на дигитализация наричаме sampling. Така един времеви интервал от звук, може да се разбие на <b>n</b> на брой парчета, като всяко от тях е число в масив.</p>
+      <p>В момент <b>T</b> във всеки канал от потока на звука има извадка. Групата от тези извадки наричаме sample frame на момент <b>T</b>. Също така sample frame-а е n-мерен вектор, където n е броят на каналите.</p>
+      <p>Този масив от frame-ове се пази в AudioBuffer, който се характеризира с дължина (бр. sample frame-ове) и честота на извадките (sample rate), което е бр. на sample frame-овете пуснати за секунда. Например един стерео буфер може да бъде представен по следния начин:
+          <img src="img/audio_buffer.png"/>
+      </p>
+      
+      <h2 id="chans">Аудио канали</h2>
+      <p>Има различни видове аудио буфери, като най-често използваните (и тези поддържани от Web Audio API) са поставени в таблицата отдолу.</p>
 
-        <table>
-            <tr>
-                <th>Аудио буфер</th>
-                <th>Канали</th>
-            </tr>
-            <tr>
-                <td>Моно</td>
-                <td><text class="mark">0: M: mono</text></td>
-            </tr>
-            <tr>
-                <td>Стерео</td>
-                <td>
-                    <text class="mark">0: L: left</text><br/>
-                    <text class="mark">1: R: right</text>
-                </td>
-            </tr>
-            <tr>
-                <td>Quad</td>
-                <td>
-                    <text class="mark">0: L: left</text><br/>
-                    <text class="mark">1: R: right</text><br/>
-                    <text class="mark">2: SL: surround left</text><br/>
-                    <text class="mark">3: SR: surround right</text>
-                </td>
-            </tr>
-            <tr>
-                <td>5.1</td>
-                <td>
-                    <text class="mark">0: L: left</text><br/>
-                    <text class="mark">1: R: right</text><br/>
-                    <text class="mark">2: C: center</text><br/>
-                    <text class="mark">3: LFE: subwoofer</text><br/>
-                    <text class="mark">4: SL: surround left</text><br/>
-                    <text class="mark">5: SR: surround right</text>
-                </td>
-            </tr>
-        </table>
-        
-        <h2>Заключение</h2>
-        <p>В тази част разгледахме какво представлява уеб аудиото и как то работи на чисто концептуално ниво. В следващата част ще се навлезем в повече детайли как се реализират ефекти като този:</p>
-        <a class="btn" onclick="startLowPass()">LOW PASS EFFECT</a>
+      <table>
+          <tr>
+              <th>Аудио буфер</th>
+              <th>Канали</th>
+          </tr>
+          <tr>
+              <td>Моно</td>
+              <td><text class="mark">0: M: mono</text></td>
+          </tr>
+          <tr>
+              <td>Стерео</td>
+              <td>
+                  <text class="mark">0: L: left</text><br/>
+                  <text class="mark">1: R: right</text>
+              </td>
+          </tr>
+          <tr>
+              <td>Quad</td>
+              <td>
+                  <text class="mark">0: L: left</text><br/>
+                  <text class="mark">1: R: right</text><br/>
+                  <text class="mark">2: SL: surround left</text><br/>
+                  <text class="mark">3: SR: surround right</text>
+              </td>
+          </tr>
+          <tr>
+              <td>5.1</td>
+              <td>
+                  <text class="mark">0: L: left</text><br/>
+                  <text class="mark">1: R: right</text><br/>
+                  <text class="mark">2: C: center</text><br/>
+                  <text class="mark">3: LFE: subwoofer</text><br/>
+                  <text class="mark">4: SL: surround left</text><br/>
+                  <text class="mark">5: SR: surround right</text>
+              </td>
+          </tr>
+      </table>
+      
+      <h2>Заключение</h2>
+      <p>В тази част разгледахме какво представлява уеб аудиото и как то работи на чисто концептуално ниво. В следващата част ще се навлезем в повече детайли как се реализират ефекти като този:</p>
+      <a class="btn" onclick="startLowPass()">LOW PASS EFFECT</a>
 
-        <h1 id="intro_web_audio">Въведение в Web Audio API</h1><hr/>
-        <p>Досега главно разглеждахме какви са принципите зад Web Audio API. Нека започнем с един елементарен пример:
-        <pre class="prettyprint">
-            <code class="language-javascript">
+      <h1 id="intro_web_audio">Въведение в Web Audio API</h1><hr/>
+      <p>Досега главно разглеждахме какви са принципите зад Web Audio API. Нека започнем с един елементарен пример:
+      <pre class="prettyprint">
+          <code class="language-javascript">
 let bufferSize = 4096;
 
 function getLowPassEffect(audioCtx) {
-    let lastOut = 0.0;
+  let lastOut = 0.0;
 
-    let node = audioCtx.createScriptProcessor(bufferSize, 1, 1);
+  let node = audioCtx.createScriptProcessor(bufferSize, 1, 1);
 
-    node.onaudioprocess = function(e) {
-        let input = e.inputBuffer.getChannelData(0);
-        let output = e.outputBuffer.getChannelData(0);
+  node.onaudioprocess = function(e) {
+      let input = e.inputBuffer.getChannelData(0);
+      let output = e.outputBuffer.getChannelData(0);
 
-        for (let i = 0; i < bufferSize; ++i) {
-            output[i] = (input[i] + lastOut) / 2.0;
-            lastOut = output[i];
-        }
-    }
+      for (let i = 0; i < bufferSize; ++i) {
+          output[i] = (input[i] + lastOut) / 2.0;
+          lastOut = output[i];
+      }
+  }
 
-    return node;
+  return node;
 };
 
-            </code>
-        </pre>
-        В общи линии това е структурата на един аудио филтър.
-        </p>
-        <p>
-            В предната част се запознахме с това какво представлявата AudioBuffer-ите и, че едно от свойствата им е дължина. Тази дължина трябва да бъде подбрана по оптимален начин защото тя влияе на това, колко често <i>изкарваме звук</i>, т.е. ако е твърде къса, то звука ще се застъпва и овърта, а пък ако е твърде дълга то звука ще се накъсва. Изчислено е, че около <b>4096</b> е оптималната стойност. 
-            <pre class="prettyprint"><code class="language-javascript">
+          </code>
+      </pre>
+      В общи линии това е структурата на един аудио филтър.
+      </p>
+      <p>
+          В предната част се запознахме с това какво представлявата AudioBuffer-ите и, че едно от свойствата им е дължина. Тази дължина трябва да бъде подбрана по оптимален начин защото тя влияе на това, колко често <i>изкарваме звук</i>, т.е. ако е твърде къса, то звука ще се застъпва и овърта, а пък ако е твърде дълга то звука ще се накъсва. Изчислено е, че около <b>4096</b> е оптималната стойност. 
+          <pre class="prettyprint"><code class="language-javascript">
 let bufferSize = 4096;
-            </code></pre>
-        </p>
-        <p>
-            В този пример дефинираме наш filter node от тип scriptProcessor, който позволява да използваме специфична логика за да постигнем това, което искаме. В случая се възползваме от това, че филтърната функция е closure и използваме външна променлива, в която на всяко завъртане на цикъла запазваме предната честота на звука. Така няма накъсване между изпълнението на отделните audio buffer-и. Така спазваме базовия шаблон на всеки аудио филтър - получаваме два масива, съответно за вход и изход, циклим по входния масив като манипулираме всяка извадка (sample) и я записваме обратно в изходния масив.
-        </p>
-        <p>В общи линии този ефект е от по-скучните и можете да го чуете като натиснете бутона отдолу. В следващите глави ще разгледаме няколко по-интересни ефекта.</p>
-        <a class="btn" onclick="startLowPass()">LOW PASS EFFECT</a>
-        <h2 id="pink">Pinking filter</h2>
-        <p>Pinking филтърът представлява смесица между розов и бял шум, като кара звука, който излиза да звучи малко по смекчено. На код изглежда така:</p>
-        <pre class="prettyprint"><code class="language-javascript">
+          </code></pre>
+      </p>
+      <p>
+          В този пример дефинираме наш filter node от тип scriptProcessor, който позволява да използваме специфична логика за да постигнем това, което искаме. В случая се възползваме от това, че филтърната функция е closure и използваме външна променлива, в която на всяко завъртане на цикъла запазваме предната честота на звука. Така няма накъсване между изпълнението на отделните audio buffer-и. Така спазваме базовия шаблон на всеки аудио филтър - получаваме два масива, съответно за вход и изход, циклим по входния масив като манипулираме всяка извадка (sample) и я записваме обратно в изходния масив.
+      </p>
+      <p>В общи линии този ефект е от по-скучните и можете да го чуете като натиснете бутона отдолу. В следващите глави ще разгледаме няколко по-интересни ефекта.</p>
+      <a class="btn" onclick="startLowPass()">LOW PASS EFFECT</a>
+      <h2 id="pink">Pinking filter</h2>
+      <p>Pinking филтърът представлява смесица между розов и бял шум, като кара звука, който излиза да звучи малко по смекчено. На код изглежда така:</p>
+      <pre class="prettyprint"><code class="language-javascript">
 function getPinkingEffect(audioCtx) {
-    let bufferSize = 4096;
-    
-    let b0, b1, b2, b3, b4, b5, b6;
-    b0 = b1 = b2 = b3 = b4 = b5 = b6 = 0.0;
-    
-    let node = audioCtx.createScriptProcessor(bufferSize, 1, 1);
+  let bufferSize = 4096;
+  
+  let b0, b1, b2, b3, b4, b5, b6;
+  b0 = b1 = b2 = b3 = b4 = b5 = b6 = 0.0;
+  
+  let node = audioCtx.createScriptProcessor(bufferSize, 1, 1);
 
-    node.onaudioprocess = function(e) {
-        let input = e.inputBuffer.getChannelData(0);
-        let output = e.outputBuffer.getChannelData(0);
-        
-        for (let i = 0; i < bufferSize; i++) {
-            b0 = 0.99886 * b0 + input[i] * 0.0555179;
-            b1 = 0.99332 * b1 + input[i] * 0.0750759;
-            b2 = 0.96900 * b2 + input[i] * 0.1538520;
-            b3 = 0.86650 * b3 + input[i] * 0.3104856;
-            b4 = 0.55000 * b4 + input[i] * 0.5329522;
-            b5 = -0.7616 * b5 - input[i] * 0.0168980;
-            output[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + input[i] * 0.5362;
-            output[i] *= 0.11;
-            b6 = input[i] * 0.115926;
-        }
-    }
+  node.onaudioprocess = function(e) {
+      let input = e.inputBuffer.getChannelData(0);
+      let output = e.outputBuffer.getChannelData(0);
+      
+      for (let i = 0; i < bufferSize; i++) {
+          b0 = 0.99886 * b0 + input[i] * 0.0555179;
+          b1 = 0.99332 * b1 + input[i] * 0.0750759;
+          b2 = 0.96900 * b2 + input[i] * 0.1538520;
+          b3 = 0.86650 * b3 + input[i] * 0.3104856;
+          b4 = 0.55000 * b4 + input[i] * 0.5329522;
+          b5 = -0.7616 * b5 - input[i] * 0.0168980;
+          output[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + input[i] * 0.5362;
+          output[i] *= 0.11;
+          b6 = input[i] * 0.115926;
+      }
+  }
 
-    return node;
+  return node;
 }
-        </code></pre>
-        <p>Очевидно този пример използва почти същата логика като low-pass филтъра с разликата в това, че тук са използвани 6 low-pass филтъра за разлика от предния пример. С други думи както се забелязва b0 осреднява силата си с предишната си стойност, b1 също прави това и т.н. Тези 6 филтъра са комбинирани с точните стойности така, че средно да се получи приблизително -3 децибела на октава. Като цъкнете долния бутон може да забележите ефекта.</p>
-        <a class="btn" onclick="startPinking()">PINKING EFFECT</a>
+      </code></pre>
+      <p>Очевидно този пример използва почти същата логика като low-pass филтъра с разликата в това, че тук са използвани 6 low-pass филтъра за разлика от предния пример. С други думи както се забелязва b0 осреднява силата си с предишната си стойност, b1 също прави това и т.н. Тези 6 филтъра са комбинирани с точните стойности така, че средно да се получи приблизително -3 децибела на октава. Като цъкнете долния бутон може да забележите ефекта.</p>
+      <a class="btn" onclick="startPinking()">PINKING EFFECT</a>
 
-        <h2 id="convulsion">Звуков усуквател</h2>
-        <p>Това е един от най-готините ефекти, които могат да бъдат получени.</p>
-        <pre class="prettyprint"><code class="language-javascript">
+      <h2 id="convulsion">Звуков усуквател</h2>
+      <p>Това е един от най-готините ефекти, които могат да бъдат получени.</p>
+      <pre class="prettyprint"><code class="language-javascript">
 function noiseConvolver() {
-    let convolver = audioContext.createConvolver();
-    let noiseBuffer = audioContext.createBuffer
-        2, 
-        0.5 * audioContext.sampleRate, 
-        audioContext.sampleRate);
-    
-    let left = noiseBuffer.getChannelData(0);
-    let right = noiseBuffer.getChannelData(1);
+  let convolver = audioContext.createConvolver();
+  let noiseBuffer = audioContext.createBuffer
+      2, 
+      0.5 * audioContext.sampleRate, 
+      audioContext.sampleRate);
+  
+  let left = noiseBuffer.getChannelData(0);
+  let right = noiseBuffer.getChannelData(1);
 
-    for (var i = 0; i < noiseBuffer.length; i++) {
-        left[i] = Math.random() * 2 - 1;
-        right[i] = Math.random() * 2 - 1;
-    }
+  for (var i = 0; i < noiseBuffer.length; i++) {
+      left[i] = Math.random() * 2 - 1;
+      right[i] = Math.random() * 2 - 1;
+  }
 
-    convolver.buffer = noiseBuffer;
-    return convolver;
+  convolver.buffer = noiseBuffer;
+  return convolver;
 }
-        </code></pre>
-        <p>В обши линии тук създаваме бял шум с дължина от 0.5 секунди, който се подава съответно на L и R каналите в един стерео буфер. Като цяло чрез този шум могат да бъдат постигнати много интересни ефекти.</p>
+      </code></pre>
+      <p>В обши линии тук създаваме бял шум с дължина от 0.5 секунди, който се подава съответно на L и R каналите в един стерео буфер. Като цяло чрез този шум могат да бъдат постигнати много интересни ефекти.</p>
 
-        <h2 id="moog">Moog filter</h2>
-        <p>Това е класически ефект, чрез който се постига ефект на резонанс. Чрез кода в този пример този ефект може да се апроксимира много добре, но това е просто заобиколен начин да се постигне това.</p>
-        <pre class="prettyprint"><code class="language-javascript">
+      <h2 id="moog">Moog filter</h2>
+      <p>Това е класически ефект, чрез който се постига ефект на резонанс. Чрез кода в този пример този ефект може да се апроксимира много добре, но това е просто заобиколен начин да се постигне това.</p>
+      <pre class="prettyprint"><code class="language-javascript">
 let bufferSize = 4096;
 
 function moogEffect() {
-    let node = audioContext.createScriptProcessor(bufferSize, 1, 1);
-    let in1, in2, in3, in4, out1, out2, out3, out4;
-    in1 = in2 = in3 = in4 = out1 = out2 = out3 = out4 = 0.0;
+  let node = audioContext.createScriptProcessor(bufferSize, 1, 1);
+  let in1, in2, in3, in4, out1, out2, out3, out4;
+  in1 = in2 = in3 = in4 = out1 = out2 = out3 = out4 = 0.0;
 
-    node.cutoff = 0.065; // between 0.0 and 1.0
-    node.resonance = 3.99; // between 0.0 and 4.0
+  node.cutoff = 0.065; // between 0.0 and 1.0
+  node.resonance = 3.99; // between 0.0 and 4.0
 
-    node.onaudioprocess = function(e) {
-        let input = e.inputBuffer.getChannelData(0);
-        let output = e.outputBuffer.getChannelData(0);
-        let f = node.cutoff * 1.16;
-        let fb = node.resonance * (1.0 - 0.15 * f * f);
+  node.onaudioprocess = function(e) {
+      let input = e.inputBuffer.getChannelData(0);
+      let output = e.outputBuffer.getChannelData(0);
+      let f = node.cutoff * 1.16;
+      let fb = node.resonance * (1.0 - 0.15 * f * f);
 
-        for (let i = 0; i < bufferSize; i++) {
-            input[i] -= out4 * fb;
-            input[i] *= 0.35013 * (f*f)*(f*f);
-            out1 = input[i] + 0.3 * in1 + (1 - f) * out1; // Pole 1
-            in1 = input[i];
-            out2 = out1 + 0.3 * in2 + (1 - f) * out2; // Pole 2
-            in2 = out1;
-            out3 = out2 + 0.3 * in3 + (1 - f) * out3; // Pole 3
-            in3 = out2;
-            out4 = out3 + 0.3 * in4 + (1 - f) * out4; // Pole 4
-            in4 = out3;
-            output[i] = out4;
-        }
-    }
+      for (let i = 0; i < bufferSize; i++) {
+          input[i] -= out4 * fb;
+          input[i] *= 0.35013 * (f*f)*(f*f);
+          out1 = input[i] + 0.3 * in1 + (1 - f) * out1; // Pole 1
+          in1 = input[i];
+          out2 = out1 + 0.3 * in2 + (1 - f) * out2; // Pole 2
+          in2 = out1;
+          out3 = out2 + 0.3 * in3 + (1 - f) * out3; // Pole 3
+          in3 = out2;
+          out4 = out3 + 0.3 * in4 + (1 - f) * out4; // Pole 4
+          in4 = out3;
+          output[i] = out4;
+      }
+  }
 
-    return node;
+  return node;
 };
-        </code></pre>
+      </code></pre>
 
-        <h2 id="bitcrusher">Bitcrusher</h2>
-        <p>Този ефект квантизира (не знам думата на български) изходния сигнал, т.е. запазва извадка от входния сигнал на определени периоди, които са определени от битовете и normfreq подадени като настройка на върха.</p>
-        <pre class="prettyprint"><code class="language-javascript">
+      <h2 id="bitcrusher">Bitcrusher</h2>
+      <p>Този ефект квантизира (не знам думата на български) изходния сигнал, т.е. запазва извадка от входния сигнал на определени периоди, които са определени от битовете и normfreq подадени като настройка на върха.</p>
+      <pre class="prettyprint"><code class="language-javascript">
 let bufferSize = 4096;
 
 function bitcrusherEffect() {
-    let node = audioContext.createScriptProcessor(bufferSize, 1, 1);
-    node.bits = 4; // between 1 and 16
-    node.normfreq = 0.1; // between 0.0 and 1.0
+  let node = audioContext.createScriptProcessor(bufferSize, 1, 1);
+  node.bits = 4; // between 1 and 16
+  node.normfreq = 0.1; // between 0.0 and 1.0
 
-    let step = Math.pow(1/2, node.bits);
-    let phaser = 0;
-    let last = 0;
+  let step = Math.pow(1/2, node.bits);
+  let phaser = 0;
+  let last = 0;
 
-    node.onaudioprocess = function(e) {
-        let input = e.inputBuffer.getChannelData(0);
-        let output = e.outputBuffer.getChannelData(0);
+  node.onaudioprocess = function(e) {
+      let input = e.inputBuffer.getChannelData(0);
+      let output = e.outputBuffer.getChannelData(0);
 
-        for (var i = 0; i < bufferSize; i++) {
-            phaser += node.normfreq;
+      for (var i = 0; i < bufferSize; i++) {
+          phaser += node.normfreq;
 
-            if (phaser >= 1.0) {
-                phaser -= 1.0;
-                last = step * Math.floor(input[i] / step + 0.5);
-            }
+          if (phaser >= 1.0) {
+              phaser -= 1.0;
+              last = step * Math.floor(input[i] / step + 0.5);
+          }
 
-            output[i] = last;
-        }
-    };
+          output[i] = last;
+      }
+  };
 
-    return node;
+  return node;
 }
-        </code></pre>
+      </code></pre>
 
-        <h2>Заключение</h2>
-        <p>В тази секция разгледахме какво представлява Web Audio API и как да го прилагаме чрез разглеждането на няколко практически примера.</p>
+      <h2>Заключение</h2>
+      <p>В тази секция разгледахме какво представлява Web Audio API и как да го прилагаме чрез разглеждането на няколко практически примера.</p>
 
-        <h1>Как да си построим монотронен синтезатор за Web Audio API</h1><hr/>
-        <img src="img/monotron.jpg"/>
-        <p>В тази секция ще разгледаме това как можем да си направим монотрон използвайки Web Audio API. Той предствлява един малък синтезатор. Схемата на един монотрон е показана отдолу:</p>
-        <img src="img/monotron_block_diagram.jpg"/>
-        <p>Както се вижда на блоковата схема монотронът е един доста прост синтезатор. Състои се трионообразен осцилатор (VCO), LFO и lowpass filter (VCF). Ограничен е от това, че в даден момент може само една нота да бъде изпълнена. За да възпроизведем синтезатора ще го приложим статегията "Разбивай и владей" като го разбием на 3 части:
-            <ul>
-                <li>аудио верига, която генерира звука чрез Web Audio API.</li>
-                <li>контролен панел, представляващ копчетата на синтезатора.</li>
-                <li>лентова клавиатура, която предава сигналите от копчетата към адуио веригата</li>
-            </ul>
-        </p>
-        <h2 id="circuit">Аудио верига</h2>
-        <p>Ще започнем с имплементацията на аудио веригата. За да я сглобим ще използваме OscillatorNode за VCO и LFO, а за lowpass filter (VCF) вместо да си пишем отново наш ще използваме вградения BiquadFilterNode в Web Audio API. За начало ще приложим добрите ООП практики като обвием всичко в един клас на име Monotron.</p>
-        <pre class="prettyprint"><code class="language-javascript">
+      <h1>Как да си построим монотронен синтезатор за Web Audio API</h1><hr/>
+      <img src="img/monotron.jpg"/>
+      <p>В тази секция ще разгледаме това как можем да си направим монотрон използвайки Web Audio API. Той предствлява един малък синтезатор. Схемата на един монотрон е показана отдолу:</p>
+      <img src="img/monotron_block_diagram.jpg"/>
+      <p>Както се вижда на блоковата схема монотронът е един доста прост синтезатор. Състои се трионообразен осцилатор (VCO), LFO и lowpass filter (VCF). Ограничен е от това, че в даден момент може само една нота да бъде изпълнена. За да възпроизведем синтезатора ще го приложим статегията "Разбивай и владей" като го разбием на 3 части:
+          <ul>
+              <li>аудио верига, която генерира звука чрез Web Audio API.</li>
+              <li>контролен панел, представляващ копчетата на синтезатора.</li>
+              <li>лентова клавиатура, която предава сигналите от копчетата към адуио веригата</li>
+          </ul>
+      </p>
+      <h2 id="circuit">Аудио верига</h2>
+      <p>Ще започнем с имплементацията на аудио веригата. За да я сглобим ще използваме OscillatorNode за VCO и LFO, а за lowpass filter (VCF) вместо да си пишем отново наш ще използваме вградения BiquadFilterNode в Web Audio API. За начало ще приложим добрите ООП практики като обвием всичко в един клас на име Monotron.</p>
+      <pre class="prettyprint"><code class="language-javascript">
 class Monotron
-  constructor: (@context) ->
-    @vco = @context.createOscillator()
-    @lfo = @context.createOscillator()
-    @lfoGain = @context.createGain()
-    @vcf = @context.createBiquadFilter()
-    @output = @context.createGain()
+constructor: (@context) ->
+  @vco = @context.createOscillator()
+  @lfo = @context.createOscillator()
+  @lfoGain = @context.createGain()
+  @vcf = @context.createBiquadFilter()
+  @output = @context.createGain()
 
-    @vco.connect @vcf
-    @vcf.connect @output
-    @lfo.connect @lfoGain
-    @lfoGain.connect @vcf.frequency
+  @vco.connect @vcf
+  @vcf.connect @output
+  @lfo.connect @lfoGain
+  @lfoGain.connect @vcf.frequency
 
-    @output.gain.value = 0
-    @vco.type = @vco.SAWTOOTH
-    @lfo.type = @lfo.SAWTOOTH
-    @vco.start @context.currentTime
-    @lfo.start @context.currentTime
+  @output.gain.value = 0
+  @vco.type = @vco.SAWTOOTH
+  @lfo.type = @lfo.SAWTOOTH
+  @vco.start @context.currentTime
+  @lfo.start @context.currentTime
 
-  noteOn: (frequency, time) ->
-    time ?= @context.currentTime
-    @vco.frequency.setValueAtTime frequency, time
-    @output.gain.linearRampToValueAtTime 1.0, time + 0.1
+noteOn: (frequency, time) ->
+  time ?= @context.currentTime
+  @vco.frequency.setValueAtTime frequency, time
+  @output.gain.linearRampToValueAtTime 1.0, time + 0.1
 
-  noteOff: (time) ->
-    time ?= @context.currentTime
-    @output.gain.linearRampToValueAtTime 0.0, time + 0.1
+noteOff: (time) ->
+  time ?= @context.currentTime
+  @output.gain.linearRampToValueAtTime 0.0, time + 0.1
 
-  connect: (target) ->
-    @output.connect target
-        </code></pre>
-        <p>За момента този клас има 4 функции contructor, noteOn, noteOff, connect. Нека разгледаме конструктора. Както споменахме преди използваме OscillatorNode за VCO и LFO. Интересното е, че освен това имаме още два GainNode-а, съответно @lfoGain и @output. @lfoGain контролира какъв е цялостния ефект на LFO над звука, като по този начин съответства на главата за интензивност на LFO. @output е направено по конвенция за да имаме контрол над крайния звук. След това тези компоненти се навръзват един за друг. След това се наслагват някои стойности по подразбиране като например силата на изходния звук да е 0 и също така нагласяме формата на вълната при vco и lfo да е трионообразна (като тази на блоковата схема).</p>
-        <p>Методът noteOn увеличава силата на звука на VCO. Интересното е, че използваме linearRampToValueAtTime, което извършва интерполация на силата на звука. Така след една секунда плавно се достига до максималната сила на звука. Методът noteOff прави обратното на noteOn.</p>
-        <p>Методът connect е просто добра конвенция, позволяваща изхода на синтезатора да се закачи към каквото си поискаме, като например това може да бъде аудио уредбата на потребителя.</p>
+connect: (target) ->
+  @output.connect target
+      </code></pre>
+      <p>За момента този клас има 4 функции contructor, noteOn, noteOff, connect. Нека разгледаме конструктора. Както споменахме преди използваме OscillatorNode за VCO и LFO. Интересното е, че освен това имаме още два GainNode-а, съответно @lfoGain и @output. @lfoGain контролира какъв е цялостния ефект на LFO над звука, като по този начин съответства на главата за интензивност на LFO. @output е направено по конвенция за да имаме контрол над крайния звук. След това тези компоненти се навръзват един за друг. След това се наслагват някои стойности по подразбиране като например силата на изходния звук да е 0 и също така нагласяме формата на вълната при vco и lfo да е трионообразна (като тази на блоковата схема).</p>
+      <p>Методът noteOn увеличава силата на звука на VCO. Интересното е, че използваме linearRampToValueAtTime, което извършва интерполация на силата на звука. Така след една секунда плавно се достига до максималната сила на звука. Методът noteOff прави обратното на noteOn.</p>
+      <p>Методът connect е просто добра конвенция, позволяваща изхода на синтезатора да се закачи към каквото си поискаме, като например това може да бъде аудио уредбата на потребителя.</p>
 
-        <h2 id="cpanel">Контролния панел</h2>
-        <p>За момента имаме кода, който върши същинската работа, но за момента е незавършено. Трябва ни някакъв контролен панел откъдето да управляваме инструмента. Монотронът разполага с 5 глави за промяна на аудиото и копче определящо това, което LFO елемента модулира.</p>
-        <pre class="prettyprint"><code>
+      <h2 id="cpanel">Контролния панел</h2>
+      <p>За момента имаме кода, който върши същинската работа, но за момента е незавършено. Трябва ни някакъв контролен панел откъдето да управляваме инструмента. Монотронът разполага с 5 глави за промяна на аудиото и копче определящо това, което LFO елемента модулира.</p>
+      <pre class="prettyprint"><code>
 &lt;div id=&quot;monotron&quot;&gt;
-  &lt;div id=&quot;brand&quot;&gt;
-    &lt;h1 id=&quot;title&quot;&gt;Monotron&lt;/h1&gt;
-    &lt;div id=&quot;description&quot;&gt;Analogue Ribbon Synthesizer&lt;/div&gt;
-  &lt;/div&gt;
-  &lt;div id=&quot;controls&quot;&gt;
-    &lt;div class=&quot;panel&quot;&gt;
-      &lt;label&gt;
-      &lt;select id=&quot;mod&quot;&gt;
-        &lt;option&gt;Standby&lt;/option&gt;
-        &lt;option&gt;Pitch&lt;/option&gt;
-        &lt;option&gt;Cutoff&lt;/option&gt;
-      &lt;/select&gt;
-      &lt;br /&gt;Mod
-      &lt;/label&gt;
-    &lt;/div&gt;
-    &lt;div class=&quot;panel&quot;&gt;
-      &lt;h2&gt;VCO&lt;/h2&gt;
-      &lt;div class=&quot;knobs&quot;&gt;
-        &lt;div class=&quot;knob&quot;&gt;
-          &lt;input id=&quot;pitch&quot; type=&quot;range&quot; 
-            min=&quot;0&quot; max=&quot;100&quot; data-width=&quot;40&quot; 
-            data-height=&quot;40&quot; data-angleOffset=&quot;220&quot; 
-            data-angleRange=&quot;280&quot;&gt;
-          &lt;label&gt;Pitch&lt;/label&gt;
-        &lt;/div&gt;
-      &lt;/div&gt;
-    &lt;/div&gt;
-    &lt;div class=&quot;panel&quot;&gt;
-      &lt;h2&gt;LFO&lt;/h2&gt;
-      &lt;div class=&quot;knobs&quot;&gt;
-        &lt;div class=&quot;knob&quot;&gt;
-          &lt;input id=&quot;rate&quot; type=&quot;range&quot; min=&quot;0&quot; 
-            max=&quot;100&quot; data-width=&quot;40&quot; data-height=&quot;40&quot; 
-            data-angleOffset=&quot;220&quot; data-angleRange=&quot;280&quot;&gt;
-          &lt;label&gt;Rate&lt;/label&gt;
-        &lt;/div&gt;
-        &lt;div class=&quot;knob&quot;&gt;
-          &lt;input id=&quot;int&quot; type=&quot;range&quot; min=&quot;0&quot; 
-          max=&quot;100&quot; data-width=&quot;40&quot; data-height=&quot;40&quot; 
-          data-angleOffset=&quot;220&quot; data-angleRange=&quot;280&quot;&gt;
-          &lt;label&gt;Int.&lt;/label&gt;
-        &lt;/div&gt;
-      &lt;/div&gt;
-    &lt;/div&gt;
-    &lt;div class=&quot;panel&quot;&gt;
-      &lt;h2&gt;VCF&lt;/h2&gt;
-      &lt;div class=&quot;knobs&quot;&gt;
-        &lt;div class=&quot;knob&quot;&gt;
-          &lt;input id=&quot;cutoff&quot; type=&quot;range&quot; min=&quot;0&quot; 
-          max=&quot;100&quot; data-width=&quot;40&quot; data-height=&quot;40&quot; 
-          data-angleOffset=&quot;220&quot; data-angleRange=&quot;280&quot;&gt;
-          &lt;label&gt;Cutoff&lt;/label&gt;
-        &lt;/div&gt;
-        &lt;div class=&quot;knob&quot;&gt;
-          &lt;input id=&quot;peak&quot; type=&quot;range&quot; min=&quot;0&quot; 
-          max=&quot;100&quot; data-width=&quot;40&quot; data-height=&quot;40&quot; 
-          data-angleOffset=&quot;220&quot; data-angleRange=&quot;280&quot;&gt;
-          &lt;label&gt;Peak&lt;/label&gt;
-        &lt;/div&gt;
-      &lt;/div&gt;
-    &lt;/div&gt;
-  &lt;/div&gt;
-  &lt;div id=&quot;keyboard&quot;&gt;&lt;/div&gt;
+&lt;div id=&quot;brand&quot;&gt;
+  &lt;h1 id=&quot;title&quot;&gt;Monotron&lt;/h1&gt;
+  &lt;div id=&quot;description&quot;&gt;Analogue Ribbon Synthesizer&lt;/div&gt;
 &lt;/div&gt;
-        </code></pre>
-        <p>#brand, #controls и #keyboard съответстват на трите основни секции на синтезатора, като в #controls имаме 4 хоризонтални контролни панели.</p>
-        <p>Сега остава да приложим и малко css, за да стилизираме нашия синтезатор.</p>
-        <pre class="prettyprint"><code>
+&lt;div id=&quot;controls&quot;&gt;
+  &lt;div class=&quot;panel&quot;&gt;
+    &lt;label&gt;
+    &lt;select id=&quot;mod&quot;&gt;
+      &lt;option&gt;Standby&lt;/option&gt;
+      &lt;option&gt;Pitch&lt;/option&gt;
+      &lt;option&gt;Cutoff&lt;/option&gt;
+    &lt;/select&gt;
+    &lt;br /&gt;Mod
+    &lt;/label&gt;
+  &lt;/div&gt;
+  &lt;div class=&quot;panel&quot;&gt;
+    &lt;h2&gt;VCO&lt;/h2&gt;
+    &lt;div class=&quot;knobs&quot;&gt;
+      &lt;div class=&quot;knob&quot;&gt;
+        &lt;input id=&quot;pitch&quot; type=&quot;range&quot; 
+          min=&quot;0&quot; max=&quot;100&quot; data-width=&quot;40&quot; 
+          data-height=&quot;40&quot; data-angleOffset=&quot;220&quot; 
+          data-angleRange=&quot;280&quot;&gt;
+        &lt;label&gt;Pitch&lt;/label&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+  &lt;div class=&quot;panel&quot;&gt;
+    &lt;h2&gt;LFO&lt;/h2&gt;
+    &lt;div class=&quot;knobs&quot;&gt;
+      &lt;div class=&quot;knob&quot;&gt;
+        &lt;input id=&quot;rate&quot; type=&quot;range&quot; min=&quot;0&quot; 
+          max=&quot;100&quot; data-width=&quot;40&quot; data-height=&quot;40&quot; 
+          data-angleOffset=&quot;220&quot; data-angleRange=&quot;280&quot;&gt;
+        &lt;label&gt;Rate&lt;/label&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;knob&quot;&gt;
+        &lt;input id=&quot;int&quot; type=&quot;range&quot; min=&quot;0&quot; 
+        max=&quot;100&quot; data-width=&quot;40&quot; data-height=&quot;40&quot; 
+        data-angleOffset=&quot;220&quot; data-angleRange=&quot;280&quot;&gt;
+        &lt;label&gt;Int.&lt;/label&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+  &lt;div class=&quot;panel&quot;&gt;
+    &lt;h2&gt;VCF&lt;/h2&gt;
+    &lt;div class=&quot;knobs&quot;&gt;
+      &lt;div class=&quot;knob&quot;&gt;
+        &lt;input id=&quot;cutoff&quot; type=&quot;range&quot; min=&quot;0&quot; 
+        max=&quot;100&quot; data-width=&quot;40&quot; data-height=&quot;40&quot; 
+        data-angleOffset=&quot;220&quot; data-angleRange=&quot;280&quot;&gt;
+        &lt;label&gt;Cutoff&lt;/label&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;knob&quot;&gt;
+        &lt;input id=&quot;peak&quot; type=&quot;range&quot; min=&quot;0&quot; 
+        max=&quot;100&quot; data-width=&quot;40&quot; data-height=&quot;40&quot; 
+        data-angleOffset=&quot;220&quot; data-angleRange=&quot;280&quot;&gt;
+        &lt;label&gt;Peak&lt;/label&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+&lt;div id=&quot;keyboard&quot;&gt;&lt;/div&gt;
+&lt;/div&gt;
+      </code></pre>
+      <p>#brand, #controls и #keyboard съответстват на трите основни секции на синтезатора, като в #controls имаме 4 хоризонтални контролни панели.</p>
+      <p>Сега остава да приложим и малко css, за да стилизираме нашия синтезатор.</p>
+      <pre class="prettyprint"><code>
 #monotron {
-  background-color: #212121;
-  border-left: 1rem solid #eaeeef;
-  border-right: 1rem solid #eaeeef;
-  border-radius: 0.38196601065988556rem;
-  padding: 1.61803399rem;
-  font-family: "Source Sans Pro", Arial, sans-serif;
-  color: #eaeeef;
-  width: 40rem;
+background-color: #212121;
+border-left: 1rem solid #eaeeef;
+border-right: 1rem solid #eaeeef;
+border-radius: 0.38196601065988556rem;
+padding: 1.61803399rem;
+font-family: "Source Sans Pro", Arial, sans-serif;
+color: #eaeeef;
+width: 40rem;
 }
 
 h1, h2, h3 {
-  font-family: "Audiowide", Arial, sans-serif;
-  margin: 0;
-  font-weight: normal;
+font-family: "Audiowide", Arial, sans-serif;
+margin: 0;
+font-weight: normal;
 }
 
 #brand {
-  margin-bottom: 1.61803399rem;
+margin-bottom: 1.61803399rem;
 }
 
 #title {
-  font-size: 2.6180339927953202rem;
-  text-transform: lowercase;
-  letter-spacing: 0.05em;
+font-size: 2.6180339927953202rem;
+text-transform: lowercase;
+letter-spacing: 0.05em;
 }
 
 #description {
-  text-transform: uppercase;
-  font-weight: bold;
+text-transform: uppercase;
+font-weight: bold;
 }
 
 #controls {
-  .flex-display;
+.flex-display;
 
-  .panel {
-    padding: @size-base;
-    .flex(1);
+.panel {
+  padding: @size-base;
+  .flex(1);
 
-    h2 {
+  h2 {
+    text-align: center;
+    margin-bottom: @size-base;
+  }
+
+  label {
+    text-transform: lowercase;
+    font-weight: bold;
+  }
+
+  .knobs {
+    .flex-display;
+
+    .knob {
+      .flex(1);
       text-align: center;
-      margin-bottom: @size-base;
-    }
 
-    label {
-      text-transform: lowercase;
-      font-weight: bold;
-    }
-
-    .knobs {
-      .flex-display;
-
-      .knob {
-        .flex(1);
+      div {
         text-align: center;
-
-        div {
-          text-align: center;
-          width: 100% !important;
-          margin-bottom: @size-small;
-        }
-      }
-    }
-
-    &:first-child {
-      text-align: center;
-      .flex-display;
-      .justify-content(center);
-      .align-items(flex-end);
-
-      select {
+        width: 100% !important;
         margin-bottom: @size-small;
       }
     }
   }
+
+  &:first-child {
+    text-align: center;
+    .flex-display;
+    .justify-content(center);
+    .align-items(flex-end);
+
+    select {
+      margin-bottom: @size-small;
+    }
+  }
 }
-        </code></pre>
-        <p>Остава да добавим главите посредством Javascript. Има една доста добра <a src="https://github.com/eskimoblood/jim-knopf">библиотека</a> за това, която ще използваме. Останалата част от кода в тази секция показва как използваме тази библиотека за да си създадем главите, посредством тази библиотека.
-        </p>
-        <pre class="prettyprint"><code>
+}
+      </code></pre>
+      <p>Остава да добавим главите посредством Javascript. Има една доста добра <a src="https://github.com/eskimoblood/jim-knopf">библиотека</a> за това, която ще използваме. Останалата част от кода в тази секция показва как използваме тази библиотека за да си създадем главите, посредством тази библиотека.
+      </p>
+      <pre class="prettyprint"><code>
 Ui.P2 = function() {
 };
 
 Ui.P2.prototype = Object.create(Ui.prototype);
 
 Ui.P2.prototype.createElement = function() {
-  "use strict";
-  Ui.prototype.createElement.apply(this, arguments);
-  this.addComponent(new Ui.Arc({
-    arcWidth: this.width / 10
-  }));
+"use strict";
+Ui.prototype.createElement.apply(this, arguments);
+this.addComponent(new Ui.Arc({
+  arcWidth: this.width / 10
+}));
 
-  this.addComponent(new Ui.Pointer(this.merge(this.options, {
-    type: 'Rect',
-    pointerWidth: this.width / 10
-  })));
+this.addComponent(new Ui.Pointer(this.merge(this.options, {
+  type: 'Rect',
+  pointerWidth: this.width / 10
+})));
 
-  this.merge(this.options, {arcWidth: this.width / 10});
-  var arc = new Ui.El.Arc(this.options);
-  arc.setAngle(this.options.anglerange);
-  this.el.node.appendChild(arc.node);
-  this.el.node.setAttribute("class", "p2");
+this.merge(this.options, {arcWidth: this.width / 10});
+var arc = new Ui.El.Arc(this.options);
+arc.setAngle(this.options.anglerange);
+this.el.node.appendChild(arc.node);
+this.el.node.setAttribute("class", "p2");
 };
-        </code></pre>
-        <pre class="prettyprint"><code>
+      </code></pre>
+      <pre class="prettyprint"><code>
 .p2 path {
-  stroke: none;
-  fill: @text-color;
-  stroke-weight: .1;
+stroke: none;
+fill: @text-color;
+stroke-weight: .1;
 }
 
 .p2 path:first-child {
-  fill: darken(@bg-color, 5%);
+fill: darken(@bg-color, 5%);
 }
 
 .p2 rect {
-  fill: @text-color;
+fill: @text-color;
 }
-        </code></pre>
-        <p>След това за да почнем да използваме копчетата просто трябва да изпълним кода отдолу при зареждане на страницата.</p>
-        <pre class="prettyprint"><code>
+      </code></pre>
+      <p>След това за да почнем да използваме копчетата просто трябва да изпълним кода отдолу при зареждане на страницата.</p>
+      <pre class="prettyprint"><code>
 $ ->
-  $('.knob input').each (i, knob) ->
-    knopf = new Knob(knob, new Ui.P2())
-        </code></pre>
+$('.knob input').each (i, knob) ->
+  knopf = new Knob(knob, new Ui.P2())
+      </code></pre>
 
-        <h2 id="ribbon_keyboard">Лентова клавиатура</h2>
-        <p>Щом вече имаме главите и работещият монотрон отзад, остава да направим клавиатурата, чрез която ще свирим. За да си направим клавиатурата ще използваме динамично генериран html и css. </p>
-        <pre class="prettyprint"><code>
+      <h2 id="ribbon_keyboard">Лентова клавиатура</h2>
+      <p>Щом вече имаме главите и работещият монотрон отзад, остава да направим клавиатурата, чрез която ще свирим. За да си направим клавиатурата ще използваме динамично генериран html и css. </p>
+      <pre class="prettyprint"><code>
 noteToFrequency = (note) ->
-  Math.pow(2, (note - 69) / 12) * 440.0
+Math.pow(2, (note - 69) / 12) * 440.0
 
 class RibbonKeyboard
-  constructor: (@$el, @monotron) ->
-    @minNote = 57
-    $ul = $('<ul>')
-    for note in [1..18]
-      $key = $('<li>')
-      if note in [2, 5, 7, 10, 12, 14, 17]
-        $key.addClass 'accidental'
-        $key.width (@$el.width() / 20)
-        $key.css 'left', "-#{$key.width() / 2}px"
-        $key.css 'margin-right', "-#{$key.width()}px"
-      else if note in [1, 18]
-        $key.width (@$el.width() / 20)
-      else
-        $key.width (@$el.width() / 10)
-      $ul.append $key
-    @$el.append $ul
+constructor: (@$el, @monotron) ->
+  @minNote = 57
+  $ul = $('<ul>')
+  for note in [1..18]
+    $key = $('<li>')
+    if note in [2, 5, 7, 10, 12, 14, 17]
+      $key.addClass 'accidental'
+      $key.width (@$el.width() / 20)
+      $key.css 'left', "-#{$key.width() / 2}px"
+      $key.css 'margin-right', "-#{$key.width()}px"
+    else if note in [1, 18]
+      $key.width (@$el.width() / 20)
+    else
+      $key.width (@$el.width() / 10)
+    $ul.append $key
+  @$el.append $ul
 
+  @mouseDown = false
+  $ul.mousedown (e) =>
+    @mouseDown = true
+    @click(e)
+  $ul.mouseup (e) =>
     @mouseDown = false
-    $ul.mousedown (e) =>
-      @mouseDown = true
-      @click(e)
-    $ul.mouseup (e) =>
-      @mouseDown = false
-      @monotron.noteOff()
-    $ul.mousemove @click
+    @monotron.noteOff()
+  $ul.mousemove @click
 
-  click: (e) =>
-    return unless @mouseDown
-    offset =  e.pageX - @$el.offset().left
-    ratio = offset / @$el.width()
-    min = noteToFrequency @minNote
-    max = noteToFrequency (@minNote + 18)
-    @monotron.noteOn ratio * (max - min) + min
-        </code></pre>
-        <p>Както се вижда от кода конструктора създава 18 клавиша, като те са генерирани с точната ширина. Интеракцията с клавиатурата се извършва посредством стандартните mousedown, mouseup и mouseover събития в javascript.</p>
-        <p>Остава да направим клавиатурата така, че да изглежда добре. Това ще постигнем, чрез следния CSS.</p>
-        <pre class="prettyprint"><code>
+click: (e) =>
+  return unless @mouseDown
+  offset =  e.pageX - @$el.offset().left
+  ratio = offset / @$el.width()
+  min = noteToFrequency @minNote
+  max = noteToFrequency (@minNote + 18)
+  @monotron.noteOn ratio * (max - min) + min
+      </code></pre>
+      <p>Както се вижда от кода конструктора създава 18 клавиша, като те са генерирани с точната ширина. Интеракцията с клавиатурата се извършва посредством стандартните mousedown, mouseup и mouseover събития в javascript.</p>
+      <p>Остава да направим клавиатурата така, че да изглежда добре. Това ще постигнем, чрез следния CSS.</p>
+      <pre class="prettyprint"><code>
 #keyboard {
-  .box-sizing(border-box);
-  .box-shadow(inset 0 0 @size-base fade(@text-color, 10%));
-  background-color: darken(@bg-color, 8%);
-  border-left: @size-base solid lighten(@bg-color, 10%);
-  border-right: @size-base solid lighten(@bg-color, 10%);
-  border-top: @size-base solid darken(@bg-color, 5%);
-  border-bottom: @size-base solid lighten(@bg-color, 5%);
-  height: 7rem;
+.box-sizing(border-box);
+.box-shadow(inset 0 0 @size-base fade(@text-color, 10%));
+background-color: darken(@bg-color, 8%);
+border-left: @size-base solid lighten(@bg-color, 10%);
+border-right: @size-base solid lighten(@bg-color, 10%);
+border-top: @size-base solid darken(@bg-color, 5%);
+border-bottom: @size-base solid lighten(@bg-color, 5%);
+height: 7rem;
 
-  ul {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    width: 100%;
+ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  width: 100%;
+  height: 100%;
+
+  li {
+    float: left;
     height: 100%;
+    border-right: 1px solid @text-color;
+    position: relative;
+    .box-sizing(border-box);
 
-    li {
-      float: left;
-      height: 100%;
-      border-right: 1px solid @text-color;
-      position: relative;
-      .box-sizing(border-box);
+    &.accidental {
+      background-color: @text-color;
+      height: 70%;
+    }
 
-      &.accidental {
-        background-color: @text-color;
-        height: 70%;
-      }
-
-      &:last-child {
-        border: none;
-      }
+    &:last-child {
+      border: none;
     }
   }
 }
-        </code></pre>
-        <p>След като приложим всичко това, клавиатурата би следвало да изглежда точно като на картинката показана отдолу.</p>
-        <img src="img/synt_keyboard.jpg"/>
+}
+      </code></pre>
+      <p>След като приложим всичко това, клавиатурата би следвало да изглежда точно като на картинката показана отдолу.</p>
+      <img src="img/synt_keyboard.jpg"/>
 
-        <h2 id="connection">Свързване на компоненти</h2>
-        <p>До момента сме изградили всеки един компонент по-отделно, но все още не сме ги свързали по между си и следователно няма как да използваме нашия синтезатор. Ще започнем чрез скрипта отдолу, който за свързване на аудиото с клавиатурата.</p>
-        <pre class="prettyprint"><code>
+      <h2 id="connection">Свързване на компоненти</h2>
+      <p>До момента сме изградили всеки един компонент по-отделно, но все още не сме ги свързали по между си и следователно няма как да използваме нашия синтезатор. Ще започнем чрез скрипта отдолу, който за свързване на аудиото с клавиатурата.</p>
+      <pre class="prettyprint"><code>
 $ ->
-  audioContext = new (AudioContext ? webkitAudioContext)()
-  window.monotron = new Monotron(audioContext)
-  masterGain = audioContext.createGain()
-  masterGain.gain.value = 0.7 # to prevent clipping
-  masterGain.connect audioContext.destination
-  monotron.connect masterGain
+audioContext = new (AudioContext ? webkitAudioContext)()
+window.monotron = new Monotron(audioContext)
+masterGain = audioContext.createGain()
+masterGain.gain.value = 0.7 # to prevent clipping
+masterGain.connect audioContext.destination
+monotron.connect masterGain
 
-  keyboard = new RibbonKeyboard($('#keyboard'), monotron)
-        </code></pre>
-        <p>Чрез този скрипт ние създаваме Аудио контекст и Монотрон, регулираме максималната стойност на masterGain за да не се получават застъпвания, които могат да окажат, кофти влияние на звука. След като сме създали тези елементи създаваме нов RibbonKeyboard и го свързваме с аудио веригат. Вече аудио веригата и клавиатурата са свързани.</p>
+keyboard = new RibbonKeyboard($('#keyboard'), monotron)
+      </code></pre>
+      <p>Чрез този скрипт ние създаваме Аудио контекст и Монотрон, регулираме максималната стойност на masterGain за да не се получават застъпвания, които могат да окажат, кофти влияние на звука. След като сме създали тези елементи създаваме нов RibbonKeyboard и го свързваме с аудио веригат. Вече аудио веригата и клавиатурата са свързани.</p>
 
-        <p>Вече можем да произвеждаме някакви звуци и имаме полуфинкциониращ синтезатор, което е чудесно. Сега остава да свържем контролния панел. Обаче трябва ще трябва да го редактираме защото аудио параметрите трябва да бъдат скалирани логаритмично, а не линейно. Това е така защото ушите ни не възприемат добре звука когато промяната е линейна. Следователно ще променим .changed метода на главите.</p>
-        <pre class="prettyprint"><code>
- # ... rest of $(document).ready callback ...
-  params =
-    rate:
-      param: monotron.lfo.frequency
-      min: 0.001
-      max: 900.0
-      scale: 1.1
-    int:
-      param: monotron.lfoGain.gain
-      min: 0.5
-      max: 500.0
-    cutoff:
-      param: monotron.vcf.frequency
-      min: 0.001
-      max: 900.0
-      scale: 1.03
-    peak:
-      param: monotron.vcf.Q
-      min: 0.001
-      max: 1000.0
-      scale: 1.10
+      <p>Вече можем да произвеждаме някакви звуци и имаме полуфинкциониращ синтезатор, което е чудесно. Сега остава да свържем контролния панел. Обаче трябва ще трябва да го редактираме защото аудио параметрите трябва да бъдат скалирани логаритмично, а не линейно. Това е така защото ушите ни не възприемат добре звука когато промяната е линейна. Следователно ще променим .changed метода на главите.</p>
+      <pre class="prettyprint"><code>
+# ... rest of $(document).ready callback ...
+params =
+  rate:
+    param: monotron.lfo.frequency
+    min: 0.001
+    max: 900.0
+    scale: 1.1
+  int:
+    param: monotron.lfoGain.gain
+    min: 0.5
+    max: 500.0
+  cutoff:
+    param: monotron.vcf.frequency
+    min: 0.001
+    max: 900.0
+    scale: 1.03
+  peak:
+    param: monotron.vcf.Q
+    min: 0.001
+    max: 1000.0
+    scale: 1.10
 
-  knopfs = []
-  $('.knob input').each (i, knob) ->
-    knopf = new Knob(knob, new Ui.P2())
-    knopfs.push knopf
-    param = params[knob.id]
-    if param?
-      knopf.changed = ->
-        Knob.prototype.changed.apply this, arguments
-        # convert to log scale
-        scale = param.scale ? 1.05
-        ratio = Math.pow(scale, @value) / Math.pow(scale, @settings.max)
-        value = ratio * (param.max - param.min) + param.min
-        param.param.setValueAtTime value, audioContext.currentTime
-    else if knob.id == "pitch"
-      knopf.changed = ->
-        Knob.prototype.changed.apply this, arguments
-        keyboard.minNote = parseInt @value
-        </code></pre>
-        <p>Сега остава да конфигурираме модулационния рутер. LFO ще е изключено ако, то се намира в режим "Standby". В противен случай LFO ще модулира или честотата на VCO или на VCF.</p>
-        <pre class="prettyprint"><code>
-  # ... rest of $(document).ready callback ...
-  $('#mod').change (e) ->
-    target = $(this).find(":selected").val()
-    monotron.lfoGain.disconnect()
-    if target is "Pitch"
-      monotron.lfoGain.connect monotron.vco.frequency
-    else if target is "Cutoff"
-      monotron.lfoGain.connect monotron.vcf.frequency
-        </code></pre>
-        <p>Единственото нещо, което остана е да нагласим параметрите по подразбиране на монотрона, което ще направим чрез следния фрагмент код:</p>
-        <pre class="prettyprint"><code>
-  # ... rest of $(document).ready callback ...
-  # the initial "patch"
-  $("#pitch").val 57
-  $("#rate").val 46
-  $("#int").val 97
-  $("#cutoff").val 72
-  $("#peak").val 57
-  $("#mod").val "Pitch"
+knopfs = []
+$('.knob input').each (i, knob) ->
+  knopf = new Knob(knob, new Ui.P2())
+  knopfs.push knopf
+  param = params[knob.id]
+  if param?
+    knopf.changed = ->
+      Knob.prototype.changed.apply this, arguments
+      # convert to log scale
+      scale = param.scale ? 1.05
+      ratio = Math.pow(scale, @value) / Math.pow(scale, @settings.max)
+      value = ratio * (param.max - param.min) + param.min
+      param.param.setValueAtTime value, audioContext.currentTime
+  else if knob.id == "pitch"
+    knopf.changed = ->
+      Knob.prototype.changed.apply this, arguments
+      keyboard.minNote = parseInt @value
+      </code></pre>
+      <p>Сега остава да конфигурираме модулационния рутер. LFO ще е изключено ако, то се намира в режим "Standby". В противен случай LFO ще модулира или честотата на VCO или на VCF.</p>
+      <pre class="prettyprint"><code>
+# ... rest of $(document).ready callback ...
+$('#mod').change (e) ->
+  target = $(this).find(":selected").val()
+  monotron.lfoGain.disconnect()
+  if target is "Pitch"
+    monotron.lfoGain.connect monotron.vco.frequency
+  else if target is "Cutoff"
+    monotron.lfoGain.connect monotron.vcf.frequency
+      </code></pre>
+      <p>Единственото нещо, което остана е да нагласим параметрите по подразбиране на монотрона, което ще направим чрез следния фрагмент код:</p>
+      <pre class="prettyprint"><code>
+# ... rest of $(document).ready callback ...
+# the initial "patch"
+$("#pitch").val 57
+$("#rate").val 46
+$("#int").val 97
+$("#cutoff").val 72
+$("#peak").val 57
+$("#mod").val "Pitch"
 
-  knopfs.forEach (knopf) ->
-    knopf.changed 0
-        </code></pre>
-        <h2>Заключение</h2>
-        <p>В тази секция се запознахме с това как можем да приложим Web Audio API за да направим нещо по-голямо и практически приложимо.</p>
+knopfs.forEach (knopf) ->
+  knopf.changed 0
+      </code></pre>
+      <h2>Заключение</h2>
+      <p>В тази секция се запознахме с това как можем да приложим Web Audio API за да направим нещо по-голямо и практически приложимо.</p>
     </div>
-
-
+  </div>
 <script src="pkg/audioContext.js"></script>
 <script src="pkg/soundPlayer.js"></script>
 <script src="pkg/filter/lowPass.js"></script>
