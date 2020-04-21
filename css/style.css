@@ -10,6 +10,18 @@ body {
     margin: 0;
 }
 
+h1 {
+  font-size: 40px;
+}
+
+h2 {
+  font-size: 30px;
+}
+
+h3 {
+  font-size: 25px;
+}
+
 h1, h2, h3, h4, h5, h6, b {
   font-family: "regularFont", cursive, sans-serif;
   font-weight: 900;
@@ -18,7 +30,7 @@ h1, h2, h3, h4, h5, h6, b {
 
 html, body {
     font-family: "regularFont", cursive, sans-serif;
-    color: #FFF;
+    color: #EEE;
 }
 
 hr {
@@ -37,6 +49,7 @@ hr {
 img {
     width: 100%;
     margin: 20px 0;
+    border-radius: 3px;
 }
 
 table {
@@ -89,9 +102,19 @@ th {
   padding-left: 0;
 }
 
-#side-menu li {
+#side-menu ol li ol {
+  counter-reset: section;
+  list-style-type: none;
+}
+
+#side-menu ol li ol li {
   color: #6b6e70;
   transition: all 0.2s ease-in-out;
+  counter-increment: section;
+}
+
+#side-menu ol li ol li:before {
+  content: counters(section, ".")" ";
 }
 
 #side-menu li:hover {
@@ -119,6 +142,12 @@ th {
   min-height: 800px;
   padding: 5%;
   box-sizing: border-box;
+  text-align: justify;
+}
+
+#page ul {
+  list-style-position: inside;
+  padding-left: 0;
 }
 
 .btn {
