@@ -150,6 +150,10 @@ th {
   padding-left: 0;
 }
 
+#page a{
+  color: #86c232;
+}
+
 .btn {
     background-color: #86c232;
     padding: 8px 15px;
