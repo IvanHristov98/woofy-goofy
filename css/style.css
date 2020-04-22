@@ -58,6 +58,12 @@ img {
   font-size: 14px;
 }
 
+.table-caption {
+  width: 100%;
+  margin-top: 10px;
+  font-size: 14px;
+}
+
 table {
   border-collapse: collapse;
   width: 100%;
