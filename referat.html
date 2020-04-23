@@ -103,178 +103,232 @@
       <p>В тази част разгледахме какво представлява уеб аудиото и как то работи на чисто концептуално ниво. Вече се очаква, че читателят би трябвало да бъде запознат с най-основните концепциите в компютърно генерирания звук и Web Audio API.</p>
 
       <h2 id="I-2">2 Въведение в Web Audio API</h2><hr/>
-      <p>Досега главно разглеждахме какви са принципите зад Web Audio API. Нека започнем с един елементарен пример:
+      <p>В тази глава ще се фокусираме над имплементацията на няколко уеб филтъра, чрез които да навлезем практически в Web Audio API. Започваме от прости примери докато до стигнем някои по-интересни като например Bitcrusher.</p>
+      <p>За част от примерите в тази секция като източник на аудио ще използваме звукът от тази хиена:</p>
+      <a class="btn" onclick="playHyena()">ЗВУК ОТ ХИЕНА</a>
+      <p>В предната част се запознахме с това какво представлявата AudioBuffer-ите и, че едно от свойствата им е дължина. Тази дължина трябва да бъде подбрана по оптимален начин защото тя влияе на това, колко често <i>изкарваме звук</i>, т.е. ако е твърде къса, то звука ще се застъпва и овърта, а пък ако е твърде дълга то звука ще се накъсва. Изчислено е, че около 4096 е оптималната стойност. Заради това и дефинираме следната константа:</p>
+        <pre class="prettyprint"><code class="language-javascript">
+const bufferSize = 4096;
+        </code></pre>
+        <p>За да можем да използваме Web Audio API за да приложим нашите филтри ще ни трябват няколко помощни функции. Преди да започнем да правим каквито и да е ефекти ще трябва да се сдобием с аудио контекста на текущата страница. Това правим чрез следната функция, която е съвместима дори и с IE. Аудио контекста се използва за създаване на аудио върхове.</p>
+        <pre class="prettyprint"><code class="language-javascript">
+function getAudioContext() {
+    let AudioContext = window.AudioContext || window.webkitAudioContext;
+    return new AudioContext();
+}
+      </code></pre>
+      <p>За да се сдобием със звука на хиена ще ни трябва някакъв начин да го изтеглим. Звукът от този пример е качен в S3 bucket с CORS полица за достъп отвсякъде и е достъпен на <a target="_blank" href="https://hyenabucket.s3.amazonaws.com/hyena.mp3">https://hyenabucket.s3.amazonaws.com/hyena.mp3</a>. Сдобиването правим посредством следната функция:</p>
+      <pre class="prettyprint"><code class="language-javascript">
+function getAudioFromFile(soundFile) {
+    var audio = new Audio();
+    audio.src = soundFile;
+    audio.crossOrigin = "anonymous";
+    document.body.appendChild(audio);
+
+    return audio;
+}
+      </code></pre>
+      <p>Накрая, но не по важност, ще ни трябва някакъв начин да изпълняваме филтрите, които пишем като част от това упражнение. Това става посредством функцията:</p>
+      <pre class="prettyprint"><code class="language-javascript">
+function playFilter(soundFile, effectProvisioner) {
+    let context = getAudioContext();
+    let effect = effectProvisioner(context);
+    let audio = getAudioFromFile(soundFile);
+    let source = context.createMediaElementSource(audio);
+
+    source.connect(effect);
+    effect.connect(context.destination);
+    
+    audio.play();
+}
+      </code></pre>
       <h3 id="I-2-1">2.1 Low pass filter</h3>
+      
+      <p>Low pass филтърът е филтър, който пропуска само сигнали с честота по-ниска от даден праг, отслабвайки тези с честота над него. Може да се имплементира по следния начин.
+
       <pre class="prettyprint">
           <code class="language-javascript">
-let bufferSize = 4096;
-
 function getLowPassEffect(audioCtx) {
-  let lastOut = 0.0;
+    let lastOut = 0.0;
+    let node = audioCtx.createScriptProcessor(BUFFER_SIZE, 1, 1);
 
-  let node = audioCtx.createScriptProcessor(bufferSize, 1, 1);
+    node.onaudioprocess = function(e) {
+        let input = e.inputBuffer.getChannelData(0);
+        let output = e.outputBuffer.getChannelData(0);
 
-  node.onaudioprocess = function(e) {
-      let input = e.inputBuffer.getChannelData(0);
-      let output = e.outputBuffer.getChannelData(0);
+        for (let i = 0; i < BUFFER_SIZE; ++i) {
+            output[i] = (input[i] + lastOut) / 2.0;
+            lastOut = output[i];
+        }
+    }
 
-      for (let i = 0; i < bufferSize; ++i) {
-          output[i] = (input[i] + lastOut) / 2.0;
-          lastOut = output[i];
-      }
-  }
-
-  return node;
+    return node;
 };
-
           </code>
       </pre>
-
-      В общи линии това е структурата на един аудио филтър.
       </p>
       <p>
-          В предната част се запознахме с това какво представлявата AudioBuffer-ите и, че едно от свойствата им е дължина. Тази дължина трябва да бъде подбрана по оптимален начин защото тя влияе на това, колко често <i>изкарваме звук</i>, т.е. ако е твърде къса, то звука ще се застъпва и овърта, а пък ако е твърде дълга то звука ще се накъсва. Изчислено е, че около <b>4096</b> е оптималната стойност. 
-          <pre class="prettyprint"><code class="language-javascript">
-let bufferSize = 4096;
-          </code></pre>
+          В този пример дефинираме наш filter node от тип scriptProcessor, който позволява да използваме специфична логика за да постигнем това, което искаме. В случая се възползваме от това, че филтърната функция е closure и използваме външна променлива, в която на всяко завъртане на цикъла запазваме предната честота на звука. Така няма накъсване между изпълнението на отделните аудио буфери и спазваме базовия шаблон на всеки аудио филтър - получаваме два масива, съответно за вход и изход, циклим по входния масив като манипулираме всяка извадка (sample) и я записваме обратно в изходния масив.
       </p>
-      <p>
-          В този пример дефинираме наш filter node от тип scriptProcessor, който позволява да използваме специфична логика за да постигнем това, което искаме. В случая се възползваме от това, че филтърната функция е closure и използваме външна променлива, в която на всяко завъртане на цикъла запазваме предната честота на звука. Така няма накъсване между изпълнението на отделните audio buffer-и. Така спазваме базовия шаблон на всеки аудио филтър - получаваме два масива, съответно за вход и изход, циклим по входния масив като манипулираме всяка извадка (sample) и я записваме обратно в изходния масив.
-      </p>
-      <p>В общи линии този ефект е от по-скучните и можете да го чуете като натиснете бутона отдолу. В следващите глави ще разгледаме няколко по-интересни ефекта.</p>
-      <a class="btn" onclick="startLowPass()">LOW PASS EFFECT</a>
+      <p>В общи линии този ефект е от по-скучните и няма да се усети разлика от оригиналния звук. Можете да го чуете като натиснете бутона отдолу. В следващите глави ще разгледаме няколко по-интересни ефекта.</p>
+      <a class="btn" onclick="startLowPass()">LOW PASS ЕФЕКТ</a>
       <h3 id="I-2-2">2.2 Pinking filter</h3>
       <p>Pinking филтърът представлява смесица между розов и бял шум, като кара звука, който излиза да звучи малко по смекчено. На код изглежда така:</p>
       <pre class="prettyprint"><code class="language-javascript">
 function getPinkingEffect(audioCtx) {
-  let bufferSize = 4096;
-  
-  let b0, b1, b2, b3, b4, b5, b6;
-  b0 = b1 = b2 = b3 = b4 = b5 = b6 = 0.0;
-  
-  let node = audioCtx.createScriptProcessor(bufferSize, 1, 1);
+    let b0, b1, b2, b3, b4, b5, b6;
+    b0 = b1 = b2 = b3 = b4 = b5 = b6 = 0.0;
 
-  node.onaudioprocess = function(e) {
-      let input = e.inputBuffer.getChannelData(0);
-      let output = e.outputBuffer.getChannelData(0);
-      
-      for (let i = 0; i < bufferSize; i++) {
-          b0 = 0.99886 * b0 + input[i] * 0.0555179;
-          b1 = 0.99332 * b1 + input[i] * 0.0750759;
-          b2 = 0.96900 * b2 + input[i] * 0.1538520;
-          b3 = 0.86650 * b3 + input[i] * 0.3104856;
-          b4 = 0.55000 * b4 + input[i] * 0.5329522;
-          b5 = -0.7616 * b5 - input[i] * 0.0168980;
-          output[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + input[i] * 0.5362;
-          output[i] *= 0.11;
-          b6 = input[i] * 0.115926;
-      }
-  }
+    let node = audioCtx.createScriptProcessor(BUFFER_SIZE, 1, 1);
 
-  return node;
+    node.onaudioprocess = function(e) {
+        let input = e.inputBuffer.getChannelData(0);
+        let output = e.outputBuffer.getChannelData(0);
+
+        for (var i = 0; i < BUFFER_SIZE; i++) {
+            b0 = 0.99886 * b0 + input[i] * 0.0555179;
+            b1 = 0.99332 * b1 + input[i] * 0.0750759;
+            b2 = 0.96900 * b2 + input[i] * 0.1538520;
+            b3 = 0.86650 * b3 + input[i] * 0.3104856;
+            b4 = 0.55000 * b4 + input[i] * 0.5329522;
+            b5 = -0.7616 * b5 - input[i] * 0.0168980;
+
+            output[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + input[i] * 0.5362;
+            output[i] *= 0.11;
+
+            b6 = input[i] * 0.115926;
+        }
+    }
+
+    return node;
 }
       </code></pre>
       <p>Очевидно този пример използва почти същата логика като low-pass филтъра с разликата в това, че тук са използвани 6 low-pass филтъра за разлика от предния пример. С други думи както се забелязва b0 осреднява силата си с предишната си стойност, b1 също прави това и т.н. Тези 6 филтъра са комбинирани с точните стойности така, че средно да се получи приблизително -3 децибела на октава. Като цъкнете долния бутон може да забележите ефекта.</p>
-      <a class="btn" onclick="startPinking()">PINKING EFFECT</a>
+      <a class="btn" onclick="startPinking()">PINKING ЕФЕКТ</a>
+      <p>Почти не се забелязва.</p>
 
       <h3 id="I-2-3">2.3 Усукващ филтър</h3>
-      <p>Това е един от най-готините ефекти, които могат да бъдат получени.</p>
+      <p>Това е един от най-готините ефекти, които могат да бъдат получени и също един от най-разпространените в практиката. Представлява математически ефект, който може да се насложи върфу аудио за да се получат някой много реалистични ефекти. Примери за неговата употреба са използването му за симулация на акустично пространство в концертна зала, приглушен звук от гардероб, подводен звук и прочие. На кратко конволюцията комбинира два звука, този от източника, който се процесира и такъв, наречен импулсивен отговор (impulse response). </p>
+      <p>За да го имплементираме ще трябва да си генерираме импулсивен отговор. За да е забавно ще генерираме стерео буфер с шум:</p>
       <pre class="prettyprint"><code class="language-javascript">
-function noiseConvolver() {
-  let convolver = audioContext.createConvolver();
-  let noiseBuffer = audioContext.createBuffer
-      2, 
-      0.5 * audioContext.sampleRate, 
-      audioContext.sampleRate);
-  
-  let left = noiseBuffer.getChannelData(0);
-  let right = noiseBuffer.getChannelData(1);
+function generateStereoNoise(context) {
+    let noiseBuffer = context.createBuffer(2, 0.5 * context.sampleRate, context.sampleRate);
 
-  for (var i = 0; i < noiseBuffer.length; i++) {
-      left[i] = Math.random() * 2 - 1;
-      right[i] = Math.random() * 2 - 1;
-  }
+    let left = noiseBuffer.getChannelData(0);
+    let right = noiseBuffer.getChannelData(1);
 
-  convolver.buffer = noiseBuffer;
-  return convolver;
+    for (let i = 0; i < noiseBuffer.length; i++) {
+        left[i] = Math.random() * 2 - 1;
+        right[i] = Math.random() * 2 - 1;
+    }
+
+    return noiseBuffer;
 }
       </code></pre>
-      <p>В обши линии тук създаваме бял шум с дължина от 0.5 секунди, който се подава съответно на L и R каналите в един стерео буфер. Като цяло чрез този шум могат да бъдат постигнати много интересни ефекти.</p>
+      <p>В обши линии тук създаваме бял шум с дължина от 0.5 секунди, който се подава съответно на L и R каналите в един стерео буфер. За да бъде пълен нашия пример ще трябва да създадем ConvolderNode и да го обвържем с източник. За още по зловещ ефект ще използваме звука на хиена от по-рано за да дефинираме следната функция.</p>
+      <pre class="prettyprint"><code class="language-javascript">
+function startConvolvingEffect() {
+    let context = getAudioContext();
+
+    let audio = getAudioFromFile(HYENA_SOUND_FILE);
+    let source = context.createMediaElementSource(audio);
+
+    let noiseBuffer = generateStereoNoise(context);
+
+    let convolver = context.createConvolver();
+    convolver.buffer = noiseBuffer;    
+
+    source.connect(convolver);
+    convolver.connect(context.destination);
+    
+    audio.play();
+}
+      </code></pre>
+      <p>Тук по познатата ни вече процедура създаваме аудио контекст. Чрез него вмъкваме източника на хиеновски звук, свързваме го с ConvolverNode. ConvolverNode го свързваме с дестинацията на звука (наше хардуерно устройство) и пускаме звука. Може да се чуе от бутона по-долу.</p>
+
+      <a class="btn" onclick="startConvolvingEffect()">(ЗЛОВЕЩ) УСУКВАЩ ЕФЕКТ ВЪРХУ СМЯХ НА ХИЕНА</a>
 
       <h3 id="I-2-4">2.4 Moog filter</h3>
       <p>Това е класически ефект, чрез който се постига ефект на резонанс. Чрез кода в този пример този ефект може да се апроксимира много добре, но това е просто заобиколен начин да се постигне това.</p>
       <pre class="prettyprint"><code class="language-javascript">
-let bufferSize = 4096;
+function getMoogEffect(audioCtx) {
+    let node = audioCtx.createScriptProcessor(BUFFER_SIZE, 1, 1);
 
-function moogEffect() {
-  let node = audioContext.createScriptProcessor(bufferSize, 1, 1);
-  let in1, in2, in3, in4, out1, out2, out3, out4;
-  in1 = in2 = in3 = in4 = out1 = out2 = out3 = out4 = 0.0;
+    let in1, in2, in3, in4, out1, out2, out3, out4;
+    in1 = in2 = in3 = in4 = out1 = out2 = out3 = out4 = 0.0;
 
-  node.cutoff = 0.065; // between 0.0 and 1.0
-  node.resonance = 3.99; // between 0.0 and 4.0
+    node.cutoff = 0.065; // between 0.0 and 1.0
+    node.resonance = 3.99; // between 0.0 and 4.0
 
-  node.onaudioprocess = function(e) {
-      let input = e.inputBuffer.getChannelData(0);
-      let output = e.outputBuffer.getChannelData(0);
-      let f = node.cutoff * 1.16;
-      let fb = node.resonance * (1.0 - 0.15 * f * f);
+    node.onaudioprocess = function(e) {
+        let input = e.inputBuffer.getChannelData(0);
+        let output = e.outputBuffer.getChannelData(0);
+        
+        let f = node.cutoff * 1.16;
+        let fb = node.resonance * (1.0 - 0.15 * f * f);
 
-      for (let i = 0; i < bufferSize; i++) {
-          input[i] -= out4 * fb;
-          input[i] *= 0.35013 * (f*f)*(f*f);
-          out1 = input[i] + 0.3 * in1 + (1 - f) * out1; // Pole 1
-          in1 = input[i];
-          out2 = out1 + 0.3 * in2 + (1 - f) * out2; // Pole 2
-          in2 = out1;
-          out3 = out2 + 0.3 * in3 + (1 - f) * out3; // Pole 3
-          in3 = out2;
-          out4 = out3 + 0.3 * in4 + (1 - f) * out4; // Pole 4
-          in4 = out3;
-          output[i] = out4;
-      }
-  }
+        for (let i = 0; i < BUFFER_SIZE; i++) {
+            input[i] -= out4 * fb;
+            input[i] *= 0.35013 * (f*f)*(f*f);
 
-  return node;
-};
-      </code></pre>
+            out1 = input[i] + 0.3 * in1 + (1 - f) * out1; // Pole 1
+            in1 = input[i];
 
-      <h3 id="I-2-5">2.5 Bitcrusher</h3>
-      <p>Този ефект квантизира (не знам думата на български) изходния сигнал, т.е. запазва извадка от входния сигнал на определени периоди, които са определени от битовете и normfreq подадени като настройка на върха.</p>
-      <pre class="prettyprint"><code class="language-javascript">
-let bufferSize = 4096;
+            out2 = out1 + 0.3 * in2 + (1 - f) * out2; // Pole 2
+            in2 = out1;
 
-function bitcrusherEffect() {
-  let node = audioContext.createScriptProcessor(bufferSize, 1, 1);
-  node.bits = 4; // between 1 and 16
-  node.normfreq = 0.1; // between 0.0 and 1.0
+            out3 = out2 + 0.3 * in3 + (1 - f) * out3; // Pole 3
+            in3 = out2;
 
-  let step = Math.pow(1/2, node.bits);
-  let phaser = 0;
-  let last = 0;
+            out4 = out3 + 0.3 * in4 + (1 - f) * out4; // Pole 4
+            in4 = out3;
 
-  node.onaudioprocess = function(e) {
-      let input = e.inputBuffer.getChannelData(0);
-      let output = e.outputBuffer.getChannelData(0);
+            output[i] = out4;
+        }
+    }
 
-      for (var i = 0; i < bufferSize; i++) {
-          phaser += node.normfreq;
-
-          if (phaser >= 1.0) {
-              phaser -= 1.0;
-              last = step * Math.floor(input[i] / step + 0.5);
-          }
-
-          output[i] = last;
-      }
-  };
-
-  return node;
+    return node;
 }
       </code></pre>
+      <a class="btn" onclick="startMoog()">MOOG ЕФЕКТ</a>
+
+      <h3 id="I-2-5">2.5 Bitcrusher</h3>
+      <p>Този ефект "дигитализира" входния сигнал като го възпроизвежда във стъпаловиден вид и на парчета. Това става като запазва извадка от входния сигнал на определени периоди, които са определени от битовете и честотата на промяна на звука подадени като настройка на върха. Имплементацията изглежда по следния начни:</p>
+      <pre class="prettyprint"><code class="language-javascript">
+function getMoogEffect(audioCtx) {
+    let node = audioCtx.createScriptProcessor(BUFFER_SIZE, 1, 1);
+    node.bits = 4; // between 1 and 16
+    node.normfreq = 0.1; // between 0.0 and 1.0
+
+    let step = Math.pow(1/2, node.bits);
+    let phaser = 0;
+    let last = 0;
+
+    node.onaudioprocess = function(e) {
+        let input = e.inputBuffer.getChannelData(0);
+        let output = e.outputBuffer.getChannelData(0);
+
+        for (let i = 0; i < BUFFER_SIZE; i++) {
+            phaser += node.normfreq;
+
+            if (phaser >= 1.0) {
+                phaser -= 1.0;
+                last = step * Math.floor(input[i] / step + 0.5);
+            }
+
+            output[i] = last;
+        }
+    };
+
+    return node; 
+}
+      </code></pre>
+      <p>Първо създаваме познатия ни scriptProcessorNode, в който ще дефинираме нашите ефекти. Тук отново експлоатираме свойството на closure функциите да се пазят външни променливи, като по този начин помним на всяка итерация каква е била последна фаза и съответната честота на звука тогава. Самия closure дефиниращ филтъра върти цикъл по входните и изходните данни, като на всяка итерация се отмества с една фаза напред и ако тази фаза е надвишила даден праг (в случая 1.0), то текущшя звук се променя в противен случай се използва честота от предната итерация.</p>
+      <p>Кликнете на бутона отдолу ако желаете да чуете ефекта.</p>
+      <a class="btn" onclick="startBitcrusher()">BITCRUSHER ЕФЕКТ</a>
 
       <h3 id="I-2-6">2.6 Заключение</h3>
-      <p>В тази секция разгледахме какво представлява Web Audio API и как да го прилагаме чрез разглеждането на няколко практически примера.</p>
+      <p>В тази секция обърнахме повече внимание над това какво представлява Web Audio API и как то може да се приложи чрез няколко практически примера.</p>
 
       <h2 id="I-3">3 Монотронен синтезатор чрез Web Audio API</h2><hr/>
       <img src="img/monotron.jpg"/>
@@ -721,10 +775,12 @@ knopfs.forEach (knopf) ->
       </ol>
     </div>
   </div>
-<script src="pkg/audioContext.js"></script>
-<script src="pkg/soundPlayer.js"></script>
+<script src="pkg/common.js"></script>
 <script src="pkg/filter/lowPass.js"></script>
 <script src="pkg/filter/pinking.js"></script>
+<script src="pkg/filter/noiseConvolver.js"></script>
+<script src="pkg/filter/moog.js"></script>
+<script src="pkg/filter/bitcrusher.js"></script>
 <script src="pkg/beatifyCode.js"></script>
 </body>
 </html>

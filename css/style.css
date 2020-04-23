@@ -169,7 +169,7 @@ th {
 .btn {
     background-color: #86c232;
     padding: 8px 15px;
-    color: white;
+    color: white !important;
     border-radius: 3px;
     cursor: pointer;
     font-family: regularFont;
