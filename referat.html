@@ -39,6 +39,15 @@
                 <li><a href="#I-3-5">Заключение</a></li>
               </ol>
             </li>
+            <li><a href="#I-4">Супер-трионов синтезатор чрез Web Audio API</a>
+              <ol>
+                <li><a href="#I-4-1">Аудио верига</a></li>
+                <li><a href="#I-4-2">Потребителски интерфейс</a></li>
+                <li><a href="#I-4-3">Клавиатурата</a></li>
+                <li><a href="#I-4-4">Свързване на всичко</a></li>
+                <li><a href="#I-4-5">Заключение</a></li>
+              </ol>
+            </li>
           </ol>
         </li>
         <li><a href="#II">Фигури</a></li>
@@ -747,12 +756,373 @@ knopfs.forEach (knopf) ->
       </code></pre>
       <h3 id="I-3-5">3.5 Заключение</h3>
       <p>В тази секция се запознахме с това как можем да приложим Web Audio API за да направим нещо по-голямо и практически приложимо.</p>
+      
+      <h2 id="I-4">Супер-трионов синтезатор чрез Web Audio API</h2>
+      <img src="img/scissor.png"/>
+      <div class="img-caption">Фиг. 5 <a href="#fig-1">Супер-трионов синтезатор</a></div>
+      <p>Един от проблемите на дигиталното аудио е, че не може да възпроизведе добре звуците от аналоговото. Това се имало предвид от дизайнерите на супер-трионовия синтезатор, като той просто представлява съвкупност от разстроени осцилатори, произвеждащи трионообразни вълни, които се изпълняват едновременно на различни честоти. За краткост тези осцилатори ще наричаме трионови осцилатори.</p>
+      <p>От историческа гледна точка този синтезатор е сравнително млад като инструмент. Първият такъв е произведен през 1996 под името <a target="_blank" href="https://en.wikipedia.org/wiki/Roland_JP-8000#The_Supersaw">"Roland JP-8000"</a>. Малко по-късно идеята е била доразвита с излизането на хипер-трионовия синтезатор <a target="_blank" href="https://en.wikipedia.org/wiki/Access_Virus">"Access Virus"</a>, разполагащ с 9 разстроени трионови осцилатора. Днешно време тези синтезатори може да имат стотици разстроени осцилатори.</p>
+      <p>Подобно на монотронния синтезатор този ще го направим по същия шаблон (повторението е майка на знанието), като първо направим аудио веригата, след това UI под формата на клавиатура и въртящи се копчета. Също така ще го имплементираме на Coffe Script.</p>
+      <h3 id="I-4-1">Аудио верига</h3>
+      <p>Кодът написан в този пример ще е предимно на CoffeeScript.</p>
+      <p>Аудио веригата ще имплементираме под формата на два класа. Един за управление на дадена нота и друг агрегиращ ноти, като ги управлява такъв начин, че синтезаторът да полифоничен, т.е. нотите да могат да се изпълняват едновременно. Ще започнем с класа ScissorVoice, който ще резпрезентира нота.</p>
+      <pre class="prettyprint"><code>
+class ScissorVoice
+  constructor: (@context, @frequency, @numSaws, @detune) ->
+    @output = @context.createGain()
+    @maxGain = 1 / @numSaws
+    @saws = []
+    for i in [0...@numSaws]
+      saw = @context.createOscillator()
+      saw.type = saw.SAWTOOTH
+      saw.frequency.value = @frequency
+      saw.detune.value = -@detune + i * 2 * @detune / (@numSaws - 1)
+      saw.start @context.currentTime
+      saw.connect @output
+      @saws.push saw
+
+  start: (time) ->
+    @output.gain.setValueAtTime @maxGain, time
+
+  stop: (time) ->
+    @output.gain.setValueAtTime 0, time
+    setTimeout (=>
+      # remove old saws
+      @saws.forEach (saw) ->
+        saw.disconnect()
+    ), Math.floor((time - @context.currentTime) * 1000)
+
+  connect: (target) ->
+    @output.connect target
+      </code></pre>
+      <p>Както се вижда на кода, конструктора на дадена нота създава @numSaws на брой трионови осцилатора, разстроени равномерно в интервала (-@detune; @detune), работещи на честота @frequency и свързани към @output. Трябва да се има предвид, че при изпълнение на звука, понеже всички осцилатори са свързани към изхода, то тяхната звукова стойност ще се наслагва като тя е дефинирана от (-1.0; 1.0). Заради това дефинираме @maxGain за всеки осцилатор равен на 1 / @numSaws, като така стойността на звука се запазва в интервала (-1.0; 1.0). В противен случай звука ще се отклонява много от интервала и няма да се чува адекватно.</p>
+      <p>Съответно при извикване на start метода се слага въпросната стойност @maxGain, която се подава на всеки осцилатор. При извикване на stop метода стойността на звука става 0 и трионовите осцилатори се откачат от изхода.</p>
+      <p>Щом имаме нотите е време да се сдобием с някакъв механизъм, който ги оркестрира. Ще го имплементираме под формата на класа Scissor.</p>
+      <pre class="prettyprint"><code>
+class Scissor
+  constructor: (@context) ->
+    @numSaws = 3
+    @detune = 12
+    @voices = []
+    @output = @context.createGain()
+
+  noteOn: (note, time) ->
+    return if @voices[note]?
+    time ?= @context.currentTime
+    freq = noteToFrequency note
+    voice = new ScissorVoice(@context, freq, @numSaws, @detune)
+    voice.connect @output
+    voice.start time
+    @voices[note] = voice
+
+  noteOff: (note, time) ->
+    return unless @voices[note]?
+    time ?= @context.currentTime
+    @voices[note].stop time
+    delete @voices[note]
+
+  connect: (target) ->
+    @output.connect target
+      </code></pre>
+      <p>Както се вижда в конструктора дефинираме броя на трионовите осцилатори за всяка нота и съответното ѝ разстройване. Освен това поддържаме масив от ноти. Ако една нота е в масива с ноти, то това означава, че тя се изпълнява в момента. Scissor класът разполага с два метода, съответно noteOn за стартиране на нота и noteOff за спирането ѝ.</p>
+      <p>При изпълнение на noteOn, ако дадената нота не се изпълнява в момента, то тя се създава, свързва се със звуковия изход, стартира се и се добавя в масива с ноти. Нейната честота се определя от нейния MIDI номер. Това се прави, чрез функцията отдолу.</p>
+      <pre class="prettyprint"><code>
+noteToFrequency = (note) ->
+  Math.pow(2, (note - 69) / 12) * 440.0
+      </code></pre>
+      <p>Схемата зад MIDI нотите е, че нота 69 съответсва на 440Hz. След нея всяка друга нота е с 2<sup>1/12</sup> пъти по-голяма честота от предната, като например нота 70 е с честота 2<sup>1/12</sup>*440.0Hz = 466.16Hz.</p>
+      <p>Аудио веригата може да се тества като coffee script се конвертира към js и се изпълни следния код:</p>
+      <pre class="prettyprint"><code>
+var audioContext = new webkitAudioContext();
+var scissor = new Scissor();
+scissor.connect(audioContext.destination);
+scissor.noteOn(60); // C4
+scissor.noteOn(64); // E4
+scissor.noteOn(67); // G4
+      </code></pre>
+      <h3 id="I-4-2">Потребителски интерфейс</h3>
+      <p>За генерирането на css ще използваме Less. Добра практика е при работата с Less да се дефинират някои общи променливи, относно размера на елементите на страницата. Също така ще импортираме някои библиотеки като normalize.less и preboot.less, като всъщност preboot.less ще използваме за да предефинираме някои Bootstrap стилове.</p>
+      <pre class="prettyprint"><code>
+@import "normalize.less";
+@import "preboot.less";
+@import "flexbox.less";
+
+@phi:          1.61803399;
+@size-nano:    unit(pow(@phi, -4), rem);
+@size-micro:   unit(pow(@phi, -3), rem);
+@size-tiny:    unit(pow(@phi, -2), rem);
+@size-small:   unit(pow(@phi, -1), rem);
+@size-base:    unit(pow(@phi,  0), rem);
+@size-large:   unit(pow(@phi,  1), rem);
+@size-huge:    unit(pow(@phi,  2), rem);
+@size-massive: unit(pow(@phi,  3), rem);
+@size-epic:    unit(pow(@phi,  4), rem);
+@synth-color: #737373;
+@header-color: #c30909;
+      </code></pre>
+      HTML ще бъде следния:
+      <pre class="prettyprint"><code>
+&lt;div id=&quot;scissor&quot;&gt;
+  &lt;div id=&quot;controls&quot;&gt;
+    &lt;div class=&quot;panel&quot;&gt;
+      &lt;div class=&quot;knob&quot;&gt;
+        &lt;input id=&quot;saws&quot; type=&quot;range&quot; min=&quot;1&quot; 
+          max=&quot;15&quot; data-width=&quot;62&quot; data-height=&quot;62&quot; 
+          data-angleOffset=&quot;220&quot; data-angleRange=&quot;280&quot; /&gt;
+        &lt;label&gt;Num. Saws&lt;/label&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;title panel&quot;&gt;
+      &lt;h1&gt;&lt;a href=&quot;http://noisehack.com/&quot;&gt;Scissor&lt;/a&gt;&lt;/h1&gt;
+      &lt;p&gt;Web Audio Supersaw Synthesizer&lt;/p&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;panel&quot;&gt;
+      &lt;div class=&quot;knob&quot;&gt;
+        &lt;input id=&quot;detune&quot; type=&quot;range&quot; min=&quot;0&quot; 
+          max=&quot;100&quot; data-width=&quot;62&quot; data-height=&quot;62&quot; 
+          data-angleOffset=&quot;220&quot; data-angleRange=&quot;280&quot; /&gt;
+        &lt;label&gt;Detune&lt;/label&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+  &lt;div id=&quot;keyboard&quot;&gt;&lt;/div&gt;
+&lt;/div&gt;
+</code></pre>
+      <p>Щом вече разполагаме със структурата на нашата страница е време да я стилизираме. Ще започнем със клавиатурата.</p>
+      <pre class="prettyprint"><code>
+#scissor {
+  #gradient.vertical(lighten(@synth-color, 30%), @synth-color);
+  padding-left: @size-micro;
+  padding-right: @size-micro;
+  border-radius: @size-nano;
+  .box-shadow(0 0 @size-base rgba(0,0,0,0.5));
+}
+      </code></pre>
+      Съответно CSS за стилизирането на останалите елементи от страницата е:
+      <pre class="prettyprint"><code>
+#controls {
+  padding: @size-base;
+  margin-top: @size-small;
+  .border-top-radius(@size-nano);
+  .box-sizing(border-box);
+  .flex-display;
+
+  .panel {
+    .flex(1);
+    .justify-content(center);
+    .align-items(center);
+    text-align: center;
+
+    .knob {
+      div {
+        text-align: center;
+        width: 100% !important;
+      }
+
+      label {
+        margin: 0;
+        padding: 0;
+        text-transform: uppercase;
+        font-weight: 700;
+        color: darken(@synth-color, 5%);
+        text-shadow: 0 1px 0 lighten(@synth-color, 40%);
+      }
+    }
+
+    &.title {
+      .flex(2);
+      .flex-display;
+      .flex-direction(column);
+
+      h1 {
+        margin: 0;
+        padding: 0;
+
+        a {
+          color: @header-color;
+          text-shadow: 0 1px 0 lighten(@synth-color, 40%);
+          font-size: @size-huge;
+          line-height: 1;
+          font-family: "Stalinist One", sans-serif;
+          font-weight: 400;
+          text-transform: uppercase;
+          text-decoration: none;
+        }
+      }
+
+      p {
+        margin: 0;
+        padding: 0;
+        text-transform: uppercase;
+        font-weight: 700;
+        color: darken(@synth-color, 5%);
+        text-shadow: 0 1px 0 lighten(@synth-color, 40%);
+      }
+    }
+  }
+}
+      </code></pre>
+      <h3 id="I-4-3">Клавиатурата</h3>
+      <p>Щом вече сме създали аудио веригата и потребителския интерфейс е време да добавим и клавиатура, която да комуникира с аудио веригата. Функционалността ще поставим CoffeeScript клас на име VirtualKeyboard. За да не е hardcode-нато всичко и за да може да не е tightly-coupled към нашия синтезатор, клавиатурата ще приема callback функции при изпълнение на функциите noteOn и noteOff.</p>
+      <pre class="prettyprint"><code>
+class VirtualKeyboard
+  constructor: (@$el, params) ->
+    @lowestNote = params.lowestNote ? 48
+    @letters = params.letters ? "awsedftgyhujkolp;'".split ''
+    @noteOn = params.noteOn ? (note) -> console.log "noteOn: #{note}"
+    @noteOff = params.noteOff ? (note) -> console.log "noteOff: #{note}"
+    @keysPressed = {}
+    @render()
+    @bindKeys()
+    @bindMouse()
+
+  _noteOn: (note) ->
+    return if note of @keysPressed
+    $(@$el.find('li').get(note - @lowestNote)).addClass 'active'
+    @keysPressed[note] = true
+    @noteOn note
+
+  _noteOff: (note) ->
+    return unless note of @keysPressed
+    $(@$el.find('li').get(note - @lowestNote)).removeClass 'active'
+    delete @keysPressed[note]
+    @noteOff note
+      </code></pre>
+      <p>За леснота при обработка на събития от мишката ще използваме библиотеката Mousetrap. Така като натискаме клавиши от клавиатурата ще се изпълнява съответната нота. Също ще нагласим промяната на октавите чрез клавиши. При натискане на z нотите ще се отместват с една октава надолу, докато при x с една нагоре.</p>
+      <pre class="prettyprint"><code>
+bindKeys: ->
+  for letter, i in @letters
+    do (letter, i) =>
+      Mousetrap.bind letter, (=>
+        @_noteOn (@lowestNote + i)
+      ), 'keydown'
+      Mousetrap.bind letter, (=>
+        @_noteOff (@lowestNote + i)
+      ), 'keyup'
+
+  Mousetrap.bind 'z', =>
+    # shift one octave down
+    @lowestNote -= 12
+
+  Mousetrap.bind 'x', =>
+    # shift one octave up
+    @lowestNote += 12
+      </code></pre>
+      <p>Освен чрез клавиатурата ще трябва да позволим на потребителя да използва мишката за да натиска клавишите от потребителския интерфейс. Това ще го позволим чрез кода отдолу:</p>
+      <pre class="prettyprint"><code>
+bindMouse: ->
+  @$el.find('li').each (i, key) =>
+    $(key).mousedown =>
+      @_noteOn (@lowestNote + i)
+    $(key).mouseup =>
+      @_noteOff (@lowestNote + i)
+      </code></pre>
+      <p>Единственото нещо, което остава за да довършим клавиатурата е да добавим CSS за нейното стилизиране. Подбрали сме стил с бели и черни клавиши като класическо пиано примесен с малко стил на компютърна клавиатура. За да промените цветовете на клавишите можеде да промените RGB стойностите на променливите @white-key и @black-key.</p>
+      <pre class="prettyprint"><code>
+@white-key: rgb(236, 236, 236);
+@black-key: rgb(70, 70, 70);
+
+.piano-key(@color) {
+  background-color: @color;
+  color: darken(@color, 30%);
+  text-shadow: 0 1px 0 lighten(@color, 10%);
+  border-top: @size-nano solid darken(@color, 10%);
+  border-left: @size-tiny solid darken(@color, 15%);
+  border-right: @size-tiny solid darken(@color, 15%);
+  border-bottom: @size-micro solid darken(@color, 25%);
+  .box-shadow(0 @size-micro @size-small rgba(0,0,0,0.5));
+
+  &.active {
+    .box-shadow(0 @size-nano @size-micro rgba(0,0,0,0.5));
+    text-shadow: 0 1px 0 @color;
+    #gradient.vertical(@color, darken(@color, 10%));
+  }
+}
+
+#keyboard {
+  cursor: pointer;
+
+  ul {
+    margin: 0 auto;
+    padding: 0;
+    list-style: none;
+
+    li {
+      float: left;
+      width: @size-massive;
+      height: @size-epic;
+      text-transform: uppercase;
+      font-style: italic;
+      padding-left: @size-tiny;
+      padding-bottom: @size-micro;
+      margin-right: @size-nano;
+      .box-sizing(border-box);
+      .flex-display;
+      .align-items(flex-end);
+      .border-bottom-radius(@size-micro);
+      .piano-key(@white-key);
+
+      &.accidental {
+        position: relative;
+        margin-left: -@size-large;
+        margin-right: -(@size-large + (@size-massive / 2));
+        height: @size-massive;
+        .piano-key(@black-key);
+      }
+
+      &:last-child {
+        margin-right: 0;
+      }
+    }
+  }
+}  
+      </code></pre>
+      <h3 id="I-4-4">Свързване на всичко</h3>
+      <p>Веднъж щом са създадени отделните компоненти не могат да работят от само себе си и ще трябва някакъв код, който да ги свърже. Това ще постигнем чрез кода отдолу.</p>
+      <pre class="prettyprint"><code>
+$ ->
+  audioContext = new (AudioContext ? webkitAudioContext)
+  masterGain = audioContext.createGain()
+  masterGain.gain.value = 0.7
+  masterGain.connect audioContext.destination
+  window.scissor = new Scissor(audioContext)
+  scissor.connect masterGain
+
+  keyboard = new VirtualKeyboard $("#keyboard"),
+    noteOn: (note) ->
+      scissor.noteOn note
+    noteOff: (note) ->
+      scissor.noteOff note
+
+  setNumSaws = (numSaws) ->
+    scissor.numSaws = numSaws
+
+  setDetune = (detune) ->
+    scissor.detune = detune
+
+  sawsKnob = new Knob($("#saws")[0], new Ui.P2())
+  sawsKnob.changed = ->
+    Knob.prototype.changed.apply this, arguments
+    setNumSaws @value
+  $("#saws").val scissor.numSaws
+  sawsKnob.changed 0
+
+  detuneKnob = new Knob($("#detune")[0], new Ui.P2())
+  detuneKnob.changed = ->
+    Knob.prototype.changed.apply this, arguments
+    setDetune @value
+  $("#detune").val scissor.detune
+  detuneKnob.changed 0
+      </code></pre>
+      <h3 id="I-4-5">Заключение</h3>
+      <p>В тази глава разгледахме как можем да направим супер-трионов синтезатор. Въпреки простотата на този синтезатор чрез него могат да бъдат постигнати някои наистина впечатляващи ефекти. С този пример приключва нашата разходка из възможностите на Web Audio API. За повече информация може да потърсите <a target="_blank" href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API">официалната документация</a>.</p>
       <h1 id="II">II Фигури</h1>
       <ul>
-        <li id="fig-1">Фиг. 1 Аудио буфер - Описание.</li>
-        <li id="fig-2">Фиг. 2 Монотронен синтезатор - Описание.</li>
-        <li id="fig-3">Фиг. 3 Електрическа схема на монотронен синтезатор - Описание.</li>
-        <li id="fig-4">Фиг. 4 Лентова клавиатура - Описание.</li>
+        <li id="fig-1">Фиг. 1 Аудио буфер - Представя как аудио буферите са структурирани като масив от frame-ове, състящи се от скалари наречени извадки, отговарящи на всеки канал.</li>
+        <li id="fig-2">Фиг. 2 Монотронен синтезатор - Снимка на физически монотронен синтезатор.</li>
+        <li id="fig-3">Фиг. 3 Електрическа схема на монотронен синтезатор - Представя как елементите в аудио веригата, която целим да построим са свързани от електрическа гледна точка. Класовете в примера се базират изцяло на тази архитектура.</li>
+        <li id="fig-4">Фиг. 4 Лентова клавиатура</li>
+        <li id="fig-4">Фиг. 5 Супер-трионов синтезатор - Картинка на синтезатора, който се опитваме да получим в примера.</li>
       </ul>
       <h1 id="III">III Речник</h1>
       <h1 id="IV">IV Ресурси</h1>
